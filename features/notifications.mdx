@@ -1,0 +1,390 @@
+---
+title: Smart Reminder System
+description: Automated notification system using WorkManager to remind users to record measurements
+---
+
+## Overview
+
+MiTensión uses Android's WorkManager API to deliver smart, context-aware reminders throughout the day. The system automatically checks if you've recorded the recommended 3 measurements for the current time period and sends a notification only when needed.
+
+## Architecture
+
+### WorkManager Integration
+
+The reminder system uses `CoroutineWorker` for background processing:
+
+```kotlin
+class ReminderWorker(
+    private val context: Context,
+    workerParams: WorkerParameters
+) : CoroutineWorker(context, workerParams) {
+
+    private val CHANNEL_ID = "TENSION_REMINDERS"
+
+    override suspend fun doWork(): Result {
+        // Check current period and measurement count
+        val periodoActual = obtenerPeriodoActual()
+        val (inicio, fin) = obtenerRangoTimestamps(periodoActual)
+        val dao = AppDatabase.getDatabase(context).medicionDao()
+        val repository = MedicionRepository(dao)
+        val conteo = repository.contarMedicionesEnRango(inicio, fin)
+
+        // Send notification if needed
+        if (conteo < 3) {
+            val registrosFaltantes = 3 - conteo
+            val nombrePeriodo = context.getString(
+                when (periodoActual) {
+                    com.fxn.mitension.util.PeriodoDelDia.MAÑANA -> R.string.periodo_manana
+                    com.fxn.mitension.util.PeriodoDelDia.TARDE -> R.string.periodo_tarde
+                    com.fxn.mitension.util.PeriodoDelDia.NOCHE -> R.string.periodo_noche
+                }
+            )
+
+            val titulo = context.getString(R.string.notificacion_titulo)
+            val texto = context.getString(
+                R.string.notificacion_texto, 
+                registrosFaltantes, 
+                nombrePeriodo
+            )
+
+            enviarNotificacion(titulo, texto)
+        }
+
+        return Result.success()
+    }
+}
+```
+
+Source: `app/src/main/java/com/fxn/mitension/alarm/ReminderWorker.kt:21-55`
+
+## Smart Logic
+
+### Period-Aware Checking
+
+The system queries the database for measurements in the current time period:
+
+<Steps>
+  <Step title="Detect Current Period">
+    ```kotlin
+    val periodoActual = obtenerPeriodoActual()
+    ```
+    
+    Determines whether it's currently morning (00:01-12:30), afternoon (12:31-19:00), or evening (19:01-00:00)
+  </Step>
+  
+  <Step title="Get Time Range">
+    ```kotlin
+    val (inicio, fin) = obtenerRangoTimestamps(periodoActual)
+    ```
+    
+    Calculates the Unix timestamp range for the current period
+  </Step>
+  
+  <Step title="Count Measurements">
+    ```kotlin
+    val conteo = repository.contarMedicionesEnRango(inicio, fin)
+    ```
+    
+    Queries Room database for measurement count in the time range
+  </Step>
+  
+  <Step title="Decide Notification">
+    ```kotlin
+    if (conteo < 3) {
+        val registrosFaltantes = 3 - conteo
+        // Send notification
+    }
+    ```
+    
+    Only sends notification if fewer than 3 measurements exist
+  </Step>
+</Steps>
+
+### Context-Aware Messaging
+
+Notification text adapts to the current situation:
+
+```kotlin
+val registrosFaltantes = 3 - conteo
+val nombrePeriodo = context.getString(
+    when (periodoActual) {
+        PeriodoDelDia.MAÑANA -> R.string.periodo_manana  // "mañana"
+        PeriodoDelDia.TARDE -> R.string.periodo_tarde    // "tarde"
+        PeriodoDelDia.NOCHE -> R.string.periodo_noche    // "noche"
+    }
+)
+
+val texto = context.getString(
+    R.string.notificacion_texto, 
+    registrosFaltantes,  // e.g., 2
+    nombrePeriodo        // e.g., "mañana"
+)
+```
+
+Source: `ReminderWorker.kt:38-49`
+
+Example messages:
+- "Te faltan 3 registros en la mañana"
+- "Te falta 1 registro en la tarde"
+- "Te faltan 2 registros en la noche"
+
+## Notification Implementation
+
+### Building the Notification
+
+```kotlin
+private fun enviarNotificacion(titulo: String, texto: String) {
+    // Create explicit intent to MainActivity
+    val intent = Intent(context, MainActivity::class.java).apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+    }
+
+    // Wrap in PendingIntent with proper back stack
+    val pendingIntent: PendingIntent? = TaskStackBuilder.create(context).run {
+        addNextIntentWithParentStack(intent)
+        getPendingIntent(
+            0, 
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    // Build notification
+    val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+        .setSmallIcon(R.drawable.mi_tension_alerta_24)
+        .setContentTitle(titulo)
+        .setContentText(texto)
+        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+        .setAutoCancel(true)
+        .setContentIntent(pendingIntent)
+
+    // Check permission (required for API 33+)
+    if (ActivityCompat.checkSelfPermission(
+            context,
+            Manifest.permission.POST_NOTIFICATIONS
+        ) != PackageManager.PERMISSION_GRANTED
+    ) {
+        return
+    }
+
+    // Show notification
+    with(NotificationManagerCompat.from(context)) {
+        notify(1, builder.build())
+    }
+}
+```
+
+Source: `ReminderWorker.kt:57-95`
+
+### Key Features
+
+<CardGroup cols={2}>
+  <Card title="Deep Link" icon="link">
+    Tapping the notification opens MainActivity, ready to record a measurement
+    
+    Uses `TaskStackBuilder` for proper back navigation
+  </Card>
+  
+  <Card title="Auto-Dismiss" icon="xmark">
+    `setAutoCancel(true)` removes notification when tapped
+    
+    Keeps notification tray clean
+  </Card>
+  
+  <Card title="Custom Icon" icon="bell">
+    Uses `R.drawable.mi_tension_alerta_24` for brand consistency
+    
+    Small icon appears in status bar
+  </Card>
+  
+  <Card title="Permission Check" icon="shield">
+    Verifies `POST_NOTIFICATIONS` permission (Android 13+)
+    
+    Gracefully handles denied permissions
+  </Card>
+</CardGroup>
+
+## Intent Handling
+
+### Proper Back Stack
+
+```kotlin
+val intent = Intent(context, MainActivity::class.java).apply {
+    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+}
+
+val pendingIntent: PendingIntent? = TaskStackBuilder.create(context).run {
+    addNextIntentWithParentStack(intent)
+    getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+}
+```
+
+Source: `ReminderWorker.kt:59-71`
+
+<Info>
+`TaskStackBuilder` ensures that when users tap "back" from MainActivity, they don't return to an empty screen. Instead, they exit the app gracefully.
+</Info>
+
+### Security Flags
+
+```kotlin
+PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+```
+
+- **FLAG_UPDATE_CURRENT**: Reuses existing PendingIntent if one exists
+- **FLAG_IMMUTABLE**: Required for security on Android 12+ (prevents external modification)
+
+## WorkManager Configuration
+
+### Scheduling Workers
+
+While the worker implementation is shown, scheduling typically happens in the app initialization:
+
+```kotlin
+// Example scheduling (not in provided code, but typical usage)
+val reminderRequest = PeriodicWorkRequestBuilder<ReminderWorker>(
+    1, TimeUnit.HOURS  // Check every hour
+)
+    .setInitialDelay(10, TimeUnit.MINUTES)
+    .build()
+
+WorkManager.getInstance(context)
+    .enqueueUniquePeriodicWork(
+        "ReminderWork",
+        ExistingPeriodicWorkPolicy.KEEP,
+        reminderRequest
+    )
+```
+
+<Note>
+WorkManager handles:
+- Battery optimization respect
+- Doze mode compatibility  
+- Automatic retry on failure
+- Work persistence across device reboots
+</Note>
+
+## Permission Requirements
+
+### Runtime Permission (Android 13+)
+
+```kotlin
+if (ActivityCompat.checkSelfPermission(
+        context,
+        Manifest.permission.POST_NOTIFICATIONS
+    ) != PackageManager.PERMISSION_GRANTED
+) {
+    return  // Don't send notification
+}
+```
+
+Source: `ReminderWorker.kt:83-89`
+
+### Manifest Declaration
+
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+```
+
+Android 13 (API 33) and higher require explicit user permission to show notifications.
+
+## Notification Channel
+
+The worker uses a dedicated channel for blood pressure reminders:
+
+```kotlin
+private val CHANNEL_ID = "TENSION_REMINDERS"
+```
+
+Source: `ReminderWorker.kt:26`
+
+The channel must be created during app initialization (typically in `Application.onCreate()`):
+
+```kotlin
+// Example channel creation (not in provided code)
+if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+    val channel = NotificationChannel(
+        "TENSION_REMINDERS",
+        "Recordatorios de Tensión",
+        NotificationManager.IMPORTANCE_DEFAULT
+    ).apply {
+        description = "Recordatorios para registrar mediciones de tensión arterial"
+    }
+    
+    val notificationManager = getSystemService(NotificationManager::class.java)
+    notificationManager.createNotificationChannel(channel)
+}
+```
+
+## Database Integration
+
+### Measurement Count Query
+
+The worker directly accesses the Room database:
+
+```kotlin
+val dao = AppDatabase.getDatabase(context).medicionDao()
+val repository = MedicionRepository(dao)
+val conteo = repository.contarMedicionesEnRango(inicio, fin)
+```
+
+Source: `ReminderWorker.kt:32-34`
+
+This ensures the notification logic uses real-time data without relying on cached state.
+
+## Benefits
+
+<CardGroup cols={2}>
+  <Card title="Battery Efficient" icon="battery-full">
+    WorkManager respects Doze mode and battery optimization
+    
+    Background work is batched and deferred intelligently
+  </Card>
+  
+  <Card title="Reliable" icon="shield-check">
+    Work survives app kills and device reboots
+    
+    Guaranteed execution when constraints are met
+  </Card>
+  
+  <Card title="Smart Scheduling" icon="clock">
+    Only notifies when measurements are actually missing
+    
+    Avoids notification spam
+  </Card>
+  
+  <Card title="User-Friendly" icon="user">
+    Context-aware messages tell users exactly what's needed
+    
+    Single tap opens app ready to record
+  </Card>
+</CardGroup>
+
+## Testing Notifications
+
+To test the notification system:
+
+<Steps>
+  <Step title="Grant Permission">
+    Ensure POST_NOTIFICATIONS permission is granted in app settings
+  </Step>
+  
+  <Step title="Trigger Worker">
+    Use WorkManager testing utilities or adb commands:
+    
+    ```bash
+    adb shell am broadcast -a androidx.work.diagnostics.REQUEST_DIAGNOSTICS
+    ```
+  </Step>
+  
+  <Step title="Verify Database">
+    Check that measurement counts are correctly queried for the current period
+  </Step>
+  
+  <Step title="Test Tap Action">
+    Tap the notification and verify MainActivity opens
+  </Step>
+</Steps>
+
+<Info>
+The notification system is designed to encourage consistent measurement habits without being intrusive. By checking actual data before notifying, it respects users who are already diligent with their tracking.
+</Info>

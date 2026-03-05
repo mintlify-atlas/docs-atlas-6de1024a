@@ -1,0 +1,449 @@
+---
+title: Testing Strategy
+description: Unit tests and instrumented tests for MiTensión Android app
+---
+
+## Overview
+
+MiTensión implements a comprehensive testing strategy with two types of tests:
+
+<CardGroup cols={2}>
+  <Card title="Unit Tests" icon="flask">
+    Fast, isolated tests for business logic, ViewModels, and utilities
+  </Card>
+  <Card title="Instrumented Tests" icon="mobile">
+    Integration tests that run on Android devices or emulators
+  </Card>
+</CardGroup>
+
+## Test Infrastructure
+
+### Dependencies
+
+The project uses modern Android testing libraries defined in `app/build.gradle.kts`:
+
+#### Unit Test Dependencies (src/test)
+
+```kotlin
+testImplementation(libs.junit)                      // JUnit 4.13.2
+testImplementation(libs.kotlinx.coroutines.test)    // Coroutines test utils
+testImplementation(libs.mockk)                       // MockK 1.13.11
+testImplementation(libs.turbine)                     // Turbine 1.1.0 for Flow testing
+testImplementation(libs.androidx.arch.core.testing) // Architecture components testing
+```
+
+#### Instrumented Test Dependencies (src/androidTest)
+
+```kotlin
+androidTestImplementation(libs.androidx.junit)              // AndroidX JUnit
+androidTestImplementation(libs.androidx.espresso.core)      // Espresso UI testing
+androidTestImplementation(platform(libs.androidx.compose.bom))
+androidTestImplementation(libs.androidx.ui.test.junit4)     // Compose testing
+androidTestImplementation(libs.androidx.navigation.testing) // Navigation testing
+```
+
+### Test Runner Configuration
+
+The app uses the standard AndroidJUnitRunner:
+
+```kotlin
+defaultConfig {
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+}
+```
+
+## Unit Tests
+
+### ViewModel Testing
+
+Location: `app/src/test/java/com/fxn/mitension/ui/viewmodel/MedicionViewModelTest.kt`
+
+Tests the core business logic for blood pressure measurements using coroutines and Flow testing.
+
+#### Test Setup
+
+<Steps>
+  <Step title="Configure Test Dispatcher">
+    Use `StandardTestDispatcher` to control coroutine execution:
+
+    ```kotlin
+    @ExperimentalCoroutinesApi
+    class MedicionViewModelTest {
+        @get:Rule
+        val instantExecutorRule = InstantTaskExecutorRule()
+
+        private val repository: MedicionRepository = mockk(relaxed = true)
+        private val testDispatcher = StandardTestDispatcher()
+        private lateinit var viewModel: MedicionViewModel
+
+        @Before
+        fun setUp() {
+            Dispatchers.setMain(testDispatcher)
+            coEvery { repository.contarMedicionesEnRango(any(), any()) } coAnswers { 0 }
+            viewModel = MedicionViewModel(repository)
+            testDispatcher.scheduler.advanceUntilIdle()
+        }
+
+        @After
+        fun tearDown() {
+            Dispatchers.resetMain()
+        }
+    }
+    ```
+  </Step>
+
+  <Step title="Mock Repository">
+    Use MockK to create test doubles:
+
+    ```kotlin
+    private val repository: MedicionRepository = mockk(relaxed = true)
+    coEvery { repository.contarMedicionesEnRango(any(), any()) } coAnswers { 0 }
+    ```
+  </Step>
+</Steps>
+
+#### Example Test Cases
+
+**Test initialization:**
+
+```kotlin
+@Test
+fun `init carga el número de medición correcto (1 si no hay datos)`() = runTest {
+    assertEquals(1, viewModel.uiState.value.numeroMedicion)
+}
+```
+
+**Test validation errors:**
+
+```kotlin
+@Test
+fun `guardarMedicion emite error si los campos están vacíos`() = runTest {
+    viewModel.guardarMedicion("Campos obligatorios", "", "")
+    viewModel.evento.test {
+        val evento = awaitItem()
+        assertTrue(evento is MedicionViewModel.UiEvento.MostrarMensaje)
+        assertEquals("Campos obligatorios", 
+                    (evento as MedicionViewModel.UiEvento.MostrarMensaje).mensaje)
+    }
+    coVerify(exactly = 0) { repository.insertarMedicion(any()) }
+}
+```
+
+**Test business rules (daily quota limit):**
+
+```kotlin
+@Test
+fun `guardarMedicion emite error si el cupo del período está lleno`() = runTest {
+    // Simulate full quota
+    viewModel.onGuardadoExitoso() // num = 2
+    viewModel.onGuardadoExitoso() // num = 3
+    viewModel.onGuardadoExitoso() // num = 4
+    assertEquals(4, viewModel.uiState.value.numeroMedicion)
+
+    viewModel.onSistolicaChanged("120")
+    viewModel.onDiastolicaChanged("80")
+    viewModel.guardarMedicion("", "Cupo lleno", "")
+
+    viewModel.evento.test {
+        val evento = awaitItem()
+        assertTrue(evento is MedicionViewModel.UiEvento.MostrarMensaje)
+        assertTrue((evento as MedicionViewModel.UiEvento.MostrarMensaje)
+                   .mensaje.contains("Cupo lleno"))
+    }
+    coVerify(exactly = 0) { repository.insertarMedicion(any()) }
+}
+```
+
+**Test successful save:**
+
+```kotlin
+@Test
+fun `guardarMedicion guarda con éxito si los campos son válidos`() = runTest {
+    viewModel.onSistolicaChanged("120")
+    viewModel.onDiastolicaChanged("80")
+    viewModel.guardarMedicion("", "", "Éxito")
+    viewModel.evento.test {
+        assertTrue(awaitItem() is MedicionViewModel.UiEvento.GuardadoConExito)
+    }
+    coVerify(exactly = 1) { repository.insertarMedicion(any()) }
+}
+```
+
+<Note>
+  The tests use **Turbine** library to test Flow emissions with `test { }` blocks, making it easy to verify events emitted by the ViewModel.
+</Note>
+
+### Utility Testing
+
+Location: `app/src/test/java/com/fxn/mitension/util/TimeUtilsTest.kt`
+
+Tests time period calculation logic (morning, afternoon, night).
+
+```kotlin
+class TimeUtilsTest {
+    @Test
+    fun `obtenerPeriodoActual devuelve MAÑANA para las 10 AM`() {
+        val calendario = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 10)
+            set(Calendar.MINUTE, 0)
+        }
+        val periodo = obtenerPeriodoParaCalendario(calendario)
+        assertEquals(PeriodoDelDia.MAÑANA, periodo)
+    }
+
+    @Test
+    fun `obtenerPeriodoActual devuelve TARDE para las 14 PM`() {
+        val calendario = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 14)
+            set(Calendar.MINUTE, 0)
+        }
+        val periodo = obtenerPeriodoParaCalendario(calendario)
+        assertEquals(PeriodoDelDia.TARDE, periodo)
+    }
+
+    @Test
+    fun `obtenerPeriodoActual devuelve NOCHE para las 21 PM`() {
+        val calendario = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 21)
+            set(Calendar.MINUTE, 0)
+        }
+        val periodo = obtenerPeriodoParaCalendario(calendario)
+        assertEquals(PeriodoDelDia.NOCHE, periodo)
+    }
+}
+```
+
+<Tip>
+  Period boundaries:
+  - **Morning (Mañana)**: 00:01 - 12:30 (1-750 minutes)
+  - **Afternoon (Tarde)**: 12:31 - 19:00 (751-1140 minutes)
+  - **Night (Noche)**: 19:01 - 00:00 (1141+ minutes)
+</Tip>
+
+## Instrumented Tests
+
+### Database Testing
+
+Location: `app/src/androidTest/java/com/fxn/mitension/data/MedicionDaoTest.kt`
+
+Tests Room database operations using an in-memory database.
+
+```kotlin
+@ExperimentalCoroutinesApi
+@RunWith(AndroidJUnit4::class)
+@SmallTest
+class MedicionDaoTest {
+    private lateinit var database: AppDatabase
+    private lateinit var dao: MedicionDao
+
+    @Before
+    fun setup() {
+        database = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            AppDatabase::class.java
+        ).allowMainThreadQueries().build()
+        dao = database.medicionDao()
+    }
+
+    @After
+    fun teardown() {
+        database.close()
+    }
+
+    @Test
+    fun insertarYContarMedicion() = runTest {
+        val medicion = Medicion(
+            id = 1, 
+            sistolica = 120, 
+            diastolica = 80, 
+            timestamp = 1000L
+        )
+        dao.insertar(medicion)
+        
+        val count = dao.contarMedicionesEnRango(900L, 1100L)
+        assertEquals(1, count)
+    }
+
+    @Test
+    fun obtenerMedicionesPorDiaDevuelveListaCorrecta() = runTest {
+        val medicionDentro = Medicion(
+            id = 1, sistolica = 120, diastolica = 80, timestamp = 1000L
+        )
+        val medicionFuera = Medicion(
+            id = 2, sistolica = 130, diastolica = 90, timestamp = 2000L
+        )
+        dao.insertar(medicionDentro)
+        dao.insertar(medicionFuera)
+
+        val mediciones = dao.obtenerMedicionesPorDia(500L, 1500L).first()
+        
+        assertEquals(1, mediciones.size)
+        assertEquals(medicionDentro, mediciones[0])
+    }
+}
+```
+
+<Note>
+  Using `inMemoryDatabaseBuilder()` ensures tests are isolated and don't interfere with each other. The database is created and destroyed with each test.
+</Note>
+
+### UI Testing with Compose
+
+Location: `app/src/androidTest/java/com/fxn/mitension/ui/screens/MedicionScreenTest.kt`
+
+Tests Compose UI screens and navigation flows.
+
+```kotlin
+@RunWith(AndroidJUnit4::class)
+class MedicionScreenTest {
+    @get:Rule
+    val composeTestRule = createAndroidComposeRule<MainActivity>()
+
+    private lateinit var navController: TestNavHostController
+
+    @Before
+    fun setupAppNavHost() {
+        composeTestRule.setContent {
+            navController = TestNavHostController(
+                ApplicationProvider.getApplicationContext()
+            )
+            navController.navigatorProvider.addNavigator(ComposeNavigator())
+            AppNavigation()
+        }
+    }
+
+    @Test
+    fun alPulsarVerCalendario_navegaACalendarioScreen() {
+        val verCalendarioText = composeTestRule.activity
+            .getString(R.string.ver_calendario)
+        
+        composeTestRule.onNodeWithText(verCalendarioText).assertIsDisplayed()
+        composeTestRule.onNodeWithText(verCalendarioText).performClick()
+        
+        val rutaActual = navController.currentBackStackEntry?.destination?.route
+        Assert.assertEquals("calendario", rutaActual)
+    }
+
+    @Test
+    fun alAbrirDialog_yConfirmar_valorApareceEnPantalla() {
+        val pulsaParaAnadirText = composeTestRule.activity
+            .getString(R.string.pulsa_para_anadir)
+        
+        composeTestRule.onNodeWithText("La Alta (sistólica)").assertIsDisplayed()
+        composeTestRule.onAllNodesWithText(pulsaParaAnadirText)[0].performClick()
+        
+        val confirmarText = composeTestRule.activity
+            .getString(R.string.confirmar)
+        composeTestRule.onNodeWithText(confirmarText).assertIsDisplayed()
+        composeTestRule.onNodeWithText(confirmarText).performClick()
+        
+        composeTestRule.onNodeWithText("1").assertIsDisplayed()
+    }
+}
+```
+
+## Running Tests
+
+### Command Line
+
+<CodeGroup>
+```bash Unit Tests
+# Run all unit tests
+./gradlew test
+
+# Run unit tests for debug build
+./gradlew testDebugUnitTest
+
+# Run unit tests for release build
+./gradlew testReleaseUnitTest
+
+# Run specific test class
+./gradlew test --tests com.fxn.mitension.ui.viewmodel.MedicionViewModelTest
+
+# Run with verbose output
+./gradlew test --info
+```
+
+```bash Instrumented Tests
+# Run all instrumented tests (device/emulator required)
+./gradlew connectedAndroidTest
+
+# Run instrumented tests for debug build
+./gradlew connectedDebugAndroidTest
+
+# Run specific test class
+./gradlew connectedAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.fxn.mitension.data.MedicionDaoTest
+```
+
+```bash All Tests
+# Run both unit and instrumented tests
+./gradlew test connectedAndroidTest
+
+# Generate test coverage report
+./gradlew testDebugUnitTest connectedDebugAndroidTest --coverage
+```
+</CodeGroup>
+
+### Android Studio
+
+<Steps>
+  <Step title="Open Test File">
+    Navigate to the test file in `app/src/test/` or `app/src/androidTest/`
+  </Step>
+  
+  <Step title="Run Tests">
+    - Click the green arrow next to the class or test method
+    - Or right-click and select **Run 'TestName'**
+  </Step>
+  
+  <Step title="View Results">
+    Test results appear in the Run window at the bottom of the IDE
+  </Step>
+</Steps>
+
+## Test Reports
+
+After running tests, HTML reports are generated:
+
+- **Unit tests**: `app/build/reports/tests/testDebugUnitTest/index.html`
+- **Instrumented tests**: `app/build/reports/androidTests/connected/index.html`
+
+<Tip>
+  Open these HTML files in a browser to view detailed test results, including pass/fail status, execution time, and error messages.
+</Tip>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Test Isolation" icon="shield">
+    Use mocks and in-memory databases to keep tests isolated and fast
+  </Card>
+  
+  <Card title="Clear Test Names" icon="tag">
+    Use descriptive test names in backticks that explain the scenario and expected outcome
+  </Card>
+  
+  <Card title="Coroutine Testing" icon="arrows-rotate">
+    Always use `runTest` and `StandardTestDispatcher` for coroutine tests
+  </Card>
+  
+  <Card title="Flow Testing" icon="water">
+    Use Turbine library to test Flow emissions with clean syntax
+  </Card>
+</CardGroup>
+
+## Continuous Integration
+
+For CI/CD pipelines, run tests with:
+
+```bash
+# Run unit tests in CI
+./gradlew test --continue
+
+# Run instrumented tests with Firebase Test Lab or emulator
+./gradlew connectedAndroidTest
+```
+
+<Note>
+  Instrumented tests require a connected device or emulator. For CI environments, consider using Firebase Test Lab or GitHub Actions with Android emulator support.
+</Note>

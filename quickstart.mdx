@@ -1,80 +1,332 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start
+description: Get started with MiTensión and record your first blood pressure measurement
 ---
 
-## Get started in three steps
+## Getting Started
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through using MiTensión for the first time, from recording your first measurement to viewing your blood pressure history in the calendar.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Make sure you have installed MiTensión on your device. See the [Installation Guide](/installation) if you haven't done so yet.
 </Note>
+
+## First Launch
+
+When you launch MiTensión for the first time:
+
+<Steps>
+  <Step title="Grant Notification Permission">
+    On Android 13 and higher, the app will request permission to send notifications.
+    
+    <Card>
+      **Why does MiTensión need notification permission?**
+      
+      The app sends periodic reminders (every 2 hours) to help you remember to take your blood pressure measurements. This is completely optional.
+    </Card>
+    
+    - Tap **Allow** to enable reminders
+    - Tap **Don't allow** if you prefer to track measurements manually
+    
+    You can change this later in your device settings.
+  </Step>
+  
+  <Step title="Understand the Main Screen">
+    You'll see the **Measurement Screen** with:
+    - **Title**: Shows the current period and measurement number (e.g., "Mañana - Medición 1/3")
+    - **Systolic field**: "La Alta (sistólica)" - your systolic blood pressure
+    - **Diastolic field**: "La Baja (diastólica)" - your diastolic blood pressure
+    - **Two buttons**: "Guardar" (Save) and "Ver Calendario" (View Calendar)
+  </Step>
+</Steps>
+
+## Recording Your First Measurement
+
+Let's record your first blood pressure measurement.
+
+<Steps>
+  <Step title="Check the Current Period">
+    The app automatically determines which period you're in based on the current time:
+    
+    - **Morning (Mañana)**: 12:01 AM - 12:30 PM
+    - **Afternoon (Tarde)**: 12:31 PM - 7:00 PM
+    - **Night (Noche)**: 7:01 PM - 12:00 AM
+    
+    The title at the top shows which period is active.
+  </Step>
+  
+  <Step title="Enter Systolic Value">
+    1. Tap on the **"La Alta (sistólica)"** field (it shows "Pulsa para añadir")
+    2. A dialog will appear with a numeric keyboard
+    3. Enter your systolic value (e.g., 120)
+    4. Tap **Confirmar** or press the Done button on the keyboard
+    
+    <Note>
+    You can enter values up to 3 digits. The input only accepts numbers.
+    </Note>
+  </Step>
+  
+  <Step title="Enter Diastolic Value">
+    1. Tap on the **"La Baja (diastólica)"** field
+    2. Enter your diastolic value (e.g., 80)
+    3. Tap **Confirmar**
+  </Step>
+  
+  <Step title="Save the Measurement">
+    1. Tap the **"Guardar"** button
+    2. You'll see a success message: "¡Medición guardada con éxito!"
+    3. The app will automatically clear the fields for your next measurement
+    4. The title updates to show "Medición 2/3"
+    
+    <Note>
+    Each measurement is automatically timestamped and stored in the local database.
+    </Note>
+  </Step>
+</Steps>
+
+## Understanding Blood Pressure Classifications
+
+MiTensión automatically classifies your measurements according to AHA guidelines:
+
+<CardGroup cols={2}>
+  <Card title="Low (Baja)" icon="arrow-down" color="#0000FF">
+    **Systolic < 90** or **Diastolic < 60**
+    
+    Color indicator: Blue
+  </Card>
+  
+  <Card title="Normal" icon="check" color="#008000">
+    **Systolic < 120** and **Diastolic < 80**
+    
+    Color indicator: Green
+  </Card>
+  
+  <Card title="Elevated (Elevada)" icon="circle-exclamation" color="#FFA500">
+    **Systolic 120-129** and **Diastolic < 80**
+    
+    Color indicator: Orange
+  </Card>
+  
+  <Card title="High Stage 1 (Alta 1)" icon="triangle-exclamation" color="#FF0000">
+    **Systolic 130-139** or **Diastolic 80-89**
+    
+    Color indicator: Red
+  </Card>
+  
+  <Card title="High Stage 2 (Alta 2)" icon="exclamation" color="#DC143C">
+    **Systolic ≥ 140** or **Diastolic ≥ 90**
+    
+    Color indicator: Crimson
+  </Card>
+  
+  <Card title="Crisis" icon="siren-on" color="#8B0000">
+    **Systolic > 180** or **Diastolic > 120**
+    
+    Color indicator: Dark Red
+  </Card>
+</CardGroup>
+
+<Warning>
+If you get a "Crisis Hipertensiva" reading, seek immediate medical attention. This app is for tracking only and does not replace medical advice.
+</Warning>
+
+## Multiple Measurements Per Period
+
+MiTensión allows you to record up to **3 measurements per period** to get a more accurate average.
+
+<Steps>
+  <Step title="Record Additional Measurements">
+    After saving your first measurement:
+    1. Wait a few minutes (recommended by medical guidelines)
+    2. Enter your second measurement
+    3. Tap **Guardar** again
+    4. Repeat for the third measurement
+  </Step>
+  
+  <Step title="Period Complete">
+    After recording 3 measurements for a period:
+    - The title changes to "Ya has completado las mediciones de [Period]"
+    - You'll see a message indicating when the next period starts
+    - You can still access the calendar to view your measurements
+  </Step>
+  
+  <Step title="Next Period">
+    When the next period begins:
+    - The app automatically resets to "Medición 1/3"
+    - You can start recording measurements for the new period
+  </Step>
+</Steps>
+
+<Note>
+The app calculates the average of your measurements for each period automatically. These averages are displayed in the calendar view.
+</Note>
+
+## Viewing Your Calendar
+
+The calendar provides a visual overview of all your measurements.
+
+<Steps>
+  <Step title="Open Calendar View">
+    From the measurement screen, tap **"Ver Calendario"** button.
+  </Step>
+  
+  <Step title="Navigate the Calendar">
+    The calendar displays:
+    - Current month and year at the top
+    - Days of the week (L M X J V S D)
+    - Each day shows three color bars representing morning, afternoon, and night
+    
+    **Navigation:**
+    - Tap the **left arrow** to view previous months
+    - Tap the **right arrow** to view future months
+  </Step>
+  
+  <Step title="Understand Color Indicators">
+    Each day cell shows three horizontal color bars:
+    
+    ```
+    [Morning] [Afternoon] [Night]
+    ```
+    
+    - **Colored bar**: Measurements recorded for that period
+    - **Transparent bar**: No measurements for that period
+    - The color indicates the average blood pressure classification for that period
+  </Step>
+  
+  <Step title="View Color Legend">
+    To see what each color means:
+    1. Tap the **three-dot menu** icon in the top-right corner
+    2. Select **"Leyenda de colores"** (Color Legend)
+    3. A dialog shows all classifications and their colors
+    4. Tap **"Cerrar"** to close the legend
+  </Step>
+  
+  <Step title="View Day Details">
+    Tap on any day in the calendar to view detailed information about measurements for that specific day.
+  </Step>
+</Steps>
+
+## Common Scenarios
+
+<AccordionGroup>
+  <Accordion title="What if I forgot to enter a value?">
+    If you try to save without entering both systolic and diastolic values, you'll see an error:
+    
+    **"Ambos campos, Alta y Baja, son obligatorios."**
+    
+    Both fields are required. Simply enter the missing value and tap Save again.
+  </Accordion>
+  
+  <Accordion title="Can I edit or delete a measurement?">
+    Currently, the app focuses on recording new measurements. To maintain data integrity:
+    - Recorded measurements cannot be edited directly through the UI
+    - Make sure your values are correct before tapping "Guardar"
+  </Accordion>
+  
+  <Accordion title="What happens if I try to record more than 3 measurements?">
+    The app will show an error message:
+    
+    **"Ya has completado los 3 registros para este período. El siguiente período empieza en [time]."**
+    
+    Wait for the next period to start recording more measurements.
+  </Accordion>
+  
+  <Accordion title="How do I add a measurement for a previous period?">
+    Measurements are timestamped when saved and automatically assigned to the current period. The app is designed for real-time tracking:
+    - Always record measurements as you take them
+    - The timestamp cannot be manually adjusted
+  </Accordion>
+  
+  <Accordion title="Do I need internet to use the app?">
+    No! MiTensión works completely offline:
+    - All measurements are stored locally on your device
+    - No internet connection required
+    - Your data never leaves your device
+  </Accordion>
+</AccordionGroup>
+
+## Setting Up Reminders
+
+MiTensión automatically schedules periodic reminders to help you maintain consistent tracking.
+
+**Reminder Configuration:**
+- **Frequency**: Every 2 hours
+- **Technology**: WorkManager (Android's recommended task scheduler)
+- **Battery Impact**: Minimal - WorkManager optimizes execution
+
+**Reminder Notification:**
+```
+Title: "¡Es hora de registrar tu tensión!"
+Message: "Aún te faltan X mediciones para completar el período de la [period]."
+```
+
+The notification shows how many measurements you still need for the current period.
+
+<Note>
+Reminders require notification permission. If you denied permission initially, you can enable it later in your device Settings > Apps > MiTensión > Permissions.
+</Note>
+
+## Tips for Best Results
+
+<CardGroup cols={2}>
+  <Card title="Consistent Timing" icon="clock">
+    Try to measure your blood pressure at the same times each day for more accurate tracking.
+  </Card>
+  
+  <Card title="Rest Before Measuring" icon="person-seat">
+    Sit quietly for 5 minutes before taking your blood pressure.
+  </Card>
+  
+  <Card title="Multiple Readings" icon="repeat">
+    Use all 3 measurement slots per period. The app averages them for better accuracy.
+  </Card>
+  
+  <Card title="Regular Tracking" icon="calendar-check">
+    Record measurements in all three periods (morning, afternoon, night) for comprehensive monitoring.
+  </Card>
+</CardGroup>
+
+## Multi-Language Support
+
+MiTensión supports three languages based on your device settings:
+
+<Tabs>
+  <Tab title="Español (Default)">
+    - La Alta (sistólica) / La Baja (diastólica)
+    - Mañana / Tarde / Noche
+    - Guardar / Ver Calendario
+  </Tab>
+  
+  <Tab title="English">
+    The app will display English labels if your device language is set to English.
+  </Tab>
+  
+  <Tab title="Galego">
+    The app will display Galician labels if your device language is set to Galician.
+  </Tab>
+</Tabs>
+
+To change the language:
+1. Go to your device **Settings > System > Languages**
+2. Change your system language
+3. Reopen MiTensión
+
+## Next Steps
+
+Now that you know the basics, explore more:
+
+<CardGroup cols={2}>
+  <Card title="Understanding the Technology" icon="code" href="/introduction">
+    Learn about the architecture and technologies powering MiTensión
+  </Card>
+  
+  <Card title="Installation Guide" icon="download" href="/installation">
+    Learn how to build the app from source or deploy updates
+  </Card>
+</CardGroup>
+
+<Warning>
+**Medical Disclaimer**
+
+MiTensión is a tracking tool only. It does not provide medical advice, diagnosis, or treatment. Always consult qualified healthcare professionals for medical decisions. If you experience symptoms of a hypertensive crisis, seek emergency medical care immediately.
+</Warning>

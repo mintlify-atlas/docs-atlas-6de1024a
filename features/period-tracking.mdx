@@ -1,0 +1,311 @@
+---
+title: 'Day Period Tracking'
+description: 'How MiTensión divides the day into Morning, Afternoon, and Night periods for organized blood pressure tracking'
+icon: 'clock'
+---
+
+## Overview
+
+MiTensión divides each day into three distinct periods to help users track blood pressure readings at different times. The app allows up to 3 measurements per period, following medical best practices for blood pressure monitoring.
+
+## The Three Periods
+
+The day is divided into three time-based periods:
+
+<CardGroup cols={3}>
+  <Card title="Morning" icon="sunrise" color="#FFD700">
+    **Mañana**
+    
+    00:01 - 12:30
+    
+    (1 - 750 minutes)
+  </Card>
+  
+  <Card title="Afternoon" icon="sun" color="#FF8C00">
+    **Tarde**
+    
+    12:31 - 19:00
+    
+    (751 - 1140 minutes)
+  </Card>
+  
+  <Card title="Night" icon="moon" color="#4B0082">
+    **Noche**
+    
+    19:01 - 00:00
+    
+    (1141 - 1440 minutes)
+  </Card>
+</CardGroup>
+
+## Period Determination Logic
+
+The app calculates which period it is based on the current time using a minutes-since-midnight approach:
+
+### Calculation Method
+
+```kotlin
+fun obtenerPeriodoActual(): PeriodoDelDia {
+    val calendario = Calendar.getInstance()
+    val hora = calendario.get(Calendar.HOUR_OF_DAY)
+    val minuto = calendario.get(Calendar.MINUTE)
+    
+    val tiempoEnMinutos = hora * 60 + minuto
+    
+    return when {
+        tiempoEnMinutos in 1..750 -> PeriodoDelDia.MAÑANA
+        tiempoEnMinutos in 751..1140 -> PeriodoDelDia.TARDE
+        else -> PeriodoDelDia.NOCHE
+    }
+}
+```
+
+<Info>
+  The time is converted to "minutes since midnight" for efficient range checking. For example, 14:30 becomes 870 minutes (14 × 60 + 30).
+</Info>
+
+## Time Ranges Explained
+
+<AccordionGroup>
+  <Accordion title="Morning Period (Mañana): 00:01 - 12:30">
+    The morning period starts one minute after midnight and extends until 12:30 PM.
+    
+    **Time Range in Minutes:** 1 - 750
+    
+    **Why this range?**
+    - Captures early morning readings (important for baseline BP)
+    - Extends past noon to accommodate late risers
+    - Ends at 12:30 to split the day naturally
+    
+    **Example times:**
+    - 06:00 → 360 minutes → **Morning**
+    - 12:00 → 720 minutes → **Morning**
+    - 12:30 → 750 minutes → **Morning**
+  </Accordion>
+  
+  <Accordion title="Afternoon Period (Tarde): 12:31 - 19:00">
+    The afternoon period covers the middle of the day through early evening.
+    
+    **Time Range in Minutes:** 751 - 1140
+    
+    **Why this range?**
+    - Captures post-lunch readings
+    - Covers typical working hours
+    - Ends before evening routines begin
+    
+    **Example times:**
+    - 12:31 → 751 minutes → **Afternoon**
+    - 15:30 → 930 minutes → **Afternoon**
+    - 19:00 → 1140 minutes → **Afternoon**
+  </Accordion>
+  
+  <Accordion title="Night Period (Noche): 19:01 - 00:00">
+    The night period covers the evening through midnight.
+    
+    **Time Range in Minutes:** 1141 - 1440 (and 0 for midnight)
+    
+    **Why this range?**
+    - Captures evening readings before bed
+    - Important for tracking nighttime blood pressure
+    - Resets at midnight for the new day
+    
+    **Example times:**
+    - 19:01 → 1141 minutes → **Night**
+    - 22:00 → 1320 minutes → **Night**
+    - 00:00 → 0 minutes → **Night** (edge case)
+  </Accordion>
+</AccordionGroup>
+
+## Period for Historical Timestamps
+
+When displaying historical data, the app determines which period a timestamp belongs to:
+
+```kotlin
+fun obtenerPeriodoParaTimestamp(timestamp: Long): PeriodoDelDia {
+    val calendario = Calendar.getInstance().apply { 
+        timeInMillis = timestamp 
+    }
+    val hora = calendario.get(Calendar.HOUR_OF_DAY)
+    val minuto = calendario.get(Calendar.MINUTE)
+    val tiempoEnMinutos = hora * 60 + minuto
+    
+    return when {
+        tiempoEnMinutos in 1..750 -> PeriodoDelDia.MAÑANA
+        tiempoEnMinutos in 751..1140 -> PeriodoDelDia.TARDE
+        else -> PeriodoDelDia.NOCHE
+    }
+}
+```
+
+<Note>
+  This function uses the same logic as `obtenerPeriodoActual()` but applies it to any timestamp, allowing the app to correctly categorize historical measurements.
+</Note>
+
+## Timestamp Range Calculation
+
+The app can calculate the exact timestamp range for each period on the current day:
+
+```kotlin
+fun obtenerRangoTimestamps(periodo: PeriodoDelDia): Pair<Long, Long> {
+    // Returns (startTimestamp, endTimestamp) for the specified period
+}
+```
+
+### Range Examples
+
+| Period | Start Time | End Time | Usage |
+|--------|-----------|----------|-------|
+| **Morning** | 00:01 | 12:30 | Query morning measurements |
+| **Afternoon** | 12:31 | 19:00 | Query afternoon measurements |
+| **Night** | 19:01 | 00:00 (next day) | Query night measurements |
+
+<Warning>
+  The night period's end time extends to midnight of the next day (00:00), so the timestamp range spans across the date boundary.
+</Warning>
+
+## Time Until Next Period
+
+The app calculates how much time remains until the next period begins:
+
+```kotlin
+fun obtenerTiempoRestanteParaSiguientePeriodo(periodoActual: PeriodoDelDia): String {
+    val ahora = System.currentTimeMillis()
+    val proximoPeriodo = when (periodoActual) {
+        PeriodoDelDia.MAÑANA -> obtenerRangoTimestamps(PeriodoDelDia.TARDE).first
+        PeriodoDelDia.TARDE -> obtenerRangoTimestamps(PeriodoDelDia.NOCHE).first
+        PeriodoDelDia.NOCHE -> {
+            // Next morning (next day at 00:01)
+            ...
+        }
+    }
+    
+    val diff = proximoPeriodo - ahora
+    val horas = diff / (1000 * 60 * 60)
+    val minutos = (diff % (1000 * 60 * 60)) / (1000 * 60)
+    
+    return when {
+        horas > 0 -> "${horas}h y ${minutos}m"
+        else -> "${minutos}m"
+    }
+}
+```
+
+**Example outputs:**
+- `"2h y 30m"` - 2 hours and 30 minutes until next period
+- `"45m"` - 45 minutes until next period
+- `"un momento"` - Less than a minute remaining
+
+## Measurement Limits Per Period
+
+MiTensión enforces a limit of **3 measurements per period**:
+
+<Info>
+  This follows medical guidelines for blood pressure monitoring, which recommend taking 2-3 readings with brief intervals between them.
+</Info>
+
+### Period Full Handling
+
+When a user tries to add a measurement to a full period, the app:
+
+1. Displays an error message: `"Ya has completado los 3 registros para este período"`
+2. Shows how long until the next period: `"El siguiente período empieza en {time}"`
+3. Prevents adding the measurement
+
+**Example error message:**
+```
+Ya has completado los 3 registros para este período. 
+El siguiente período empieza en 2h y 15m.
+```
+
+## Implementation Reference
+
+The period tracking system is implemented across two files:
+
+### PeriodoDelDia.kt
+
+Defines the enum and current period detection:
+
+```kotlin
+enum class PeriodoDelDia {
+    MAÑANA,
+    TARDE,
+    NOCHE
+}
+```
+
+<Note>
+  Located at `app/src/main/java/com/fxn/mitension/util/PeriodoDelDia.kt:5`
+</Note>
+
+### TimeUtils.kt
+
+Provides utility functions for:
+- Timestamp range calculation (`obtenerRangoTimestamps`)
+- Time remaining calculation (`obtenerTiempoRestanteParaSiguientePeriodo`)
+- Period determination from timestamps (`obtenerPeriodoParaTimestamp`)
+
+<Note>
+  Located at `app/src/main/java/com/fxn/mitension/util/TimeUtils.kt`
+</Note>
+
+## Localized Period Names
+
+The app uses Spanish names for periods, defined in `strings.xml`:
+
+```xml
+<string name="periodo_manana">Mañana</string>
+<string name="periodo_tarde">Tarde</string>
+<string name="periodo_noche">Noche</string>
+```
+
+These are displayed throughout the UI for:
+- Current period indicator
+- Measurement entry screens
+- Calendar detail views
+- Notification messages
+
+## UI Integration
+
+### Title Display
+
+The measurement screen shows the current period and count:
+
+```xml
+<string name="titulo_medicion">%1$s - Medición %2$d/3</string>
+```
+
+**Example:** `"Mañana - Medición 2/3"`
+
+### Notification Text
+
+Reminder notifications reference the current period:
+
+```xml
+<string name="notificacion_texto">Aún te faltan %d mediciones para completar el período de la %s.</string>
+```
+
+**Example:** `"Aún te faltan 2 mediciones para completar el período de la Tarde."`
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="When to take measurements">
+    - **Morning:** Shortly after waking up, before medications
+    - **Afternoon:** Mid-day or after lunch
+    - **Night:** Before bedtime, after relaxing
+    
+    Allow 1-2 minutes of rest between consecutive measurements in the same period.
+  </Accordion>
+  
+  <Accordion title="Why three periods?">
+    The three-period system provides:
+    - **Comprehensive coverage** of the 24-hour cycle
+    - **Flexibility** for different schedules
+    - **Medical relevance** for tracking BP fluctuations
+    - **User-friendly** divisions that match daily routines
+  </Accordion>
+  
+  <Accordion title="Period transition handling">
+    The app automatically detects period transitions. If you're in the middle of entering a measurement when the period changes, the new measurement will be recorded in the new period.
+  </Accordion>
+</AccordionGroup>

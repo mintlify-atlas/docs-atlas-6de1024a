@@ -1,122 +1,92 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "MiTensión",
+  "theme": "almond",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#FF6B6B",
+    "light": "#FFB8B8",
+    "dark": "#D64545"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/FranchuLS/MiTension"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/FranchuLS/MiTension"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Get Started",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Overview",
+            "pages": ["introduction", "installation"]
+          },
+          {
+            "group": "Quick Start",
+            "pages": ["quickstart"]
+          }
+        ]
+      },
+      {
+        "tab": "Features",
+        "groups": [
+          {
+            "group": "Core Features",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "features/recording-measurements",
+              "features/calendar-view",
+              "features/day-details",
+              "features/notifications"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Understanding Data",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "features/blood-pressure-classification",
+              "features/period-tracking"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Development",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Architecture",
             "pages": [
-              "api-reference/introduction"
+              "development/architecture",
+              "development/data-model",
+              "development/ui-components"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Testing",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "development/testing",
+              "development/building"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Additional Resources",
+            "pages": [
+              "resources/changelog",
+              "resources/contributing",
+              "resources/internationalization"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

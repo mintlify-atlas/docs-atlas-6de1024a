@@ -1,0 +1,573 @@
+---
+title: Building & Deployment
+description: Build configurations, Gradle commands, and APK generation for MiTensión
+---
+
+## Overview
+
+MiTensión uses Gradle as its build system with Kotlin DSL for build scripts. The project supports multiple build variants and configurations for development and production releases.
+
+## Build System
+
+### Project Structure
+
+```
+MiTensión/
+├── build.gradle.kts          # Root build configuration
+├── settings.gradle.kts        # Project settings and modules
+├── gradle.properties          # Gradle configuration
+├── gradle/
+│   ├── libs.versions.toml    # Version catalog for dependencies
+│   └── wrapper/              # Gradle wrapper files
+└── app/
+    ├── build.gradle.kts      # App module build configuration
+    └── proguard-rules.pro    # ProGuard rules for release builds
+```
+
+### Build Configuration
+
+Key build settings from `app/build.gradle.kts`:
+
+```kotlin
+android {
+    namespace = "com.fxn.mitension"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.fxn.mitension"
+        minSdk = 31
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+
+    buildFeatures {
+        compose = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.11"
+    }
+}
+```
+
+<Note>
+  **Android Version Requirements:**
+  - Minimum SDK: **31** (Android 12)
+  - Target SDK: **35** (Android 15)
+  - Compile SDK: **36**
+</Note>
+
+## Build Variants
+
+### Debug Build
+
+The debug build is optimized for development with additional debugging tools:
+
+- No code obfuscation
+- Debug symbols included
+- Faster build times
+- Compose UI tooling enabled
+
+### Release Build
+
+From `app/build.gradle.kts`:
+
+```kotlin
+buildTypes {
+    release {
+        isMinifyEnabled = false
+        proguardFiles(
+            getDefaultProguardFile("proguard-android-optimize.txt"),
+            "proguard-rules.pro"
+        )
+    }
+}
+```
+
+<Tip>
+  Currently, minification is disabled. For production releases, consider enabling `isMinifyEnabled = true` to reduce APK size and add code obfuscation.
+</Tip>
+
+## Gradle Commands
+
+### Building the App
+
+<CodeGroup>
+```bash Debug Build
+# Build debug APK
+./gradlew assembleDebug
+
+# Output: app/build/outputs/apk/debug/app-debug.apk
+```
+
+```bash Release Build
+# Build release APK
+./gradlew assembleRelease
+
+# Output: app/build/outputs/apk/release/app-release-unsigned.apk
+```
+
+```bash All Variants
+# Build all variants (debug + release)
+./gradlew assemble
+```
+
+```bash Bundle (AAB)
+# Build Android App Bundle for Google Play
+./gradlew bundleRelease
+
+# Output: app/build/outputs/bundle/release/app-release.aab
+```
+</CodeGroup>
+
+### Installing on Device
+
+<CodeGroup>
+```bash Install Debug
+# Install debug build on connected device/emulator
+./gradlew installDebug
+```
+
+```bash Install Release
+# Install release build (must be signed)
+./gradlew installRelease
+```
+
+```bash Install and Run
+# Build, install, and launch the app
+./gradlew installDebug
+adb shell am start -n com.fxn.mitension/.MainActivity
+```
+</CodeGroup>
+
+### Cleaning Build Artifacts
+
+```bash
+# Remove all build directories
+./gradlew clean
+
+# Clean and rebuild
+./gradlew clean assembleDebug
+```
+
+## Dependency Management
+
+MiTensión uses Gradle Version Catalogs (`gradle/libs.versions.toml`) for centralized dependency management:
+
+```toml
+[versions]
+agp = "8.13.1"
+kotlin = "1.9.23"
+ksp = "1.9.23-1.0.19"
+composeB om = "2024.09.00"
+room = "2.6.1"
+lifecycle = "2.10.0"
+
+[libraries]
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+```
+
+### Updating Dependencies
+
+<Steps>
+  <Step title="Edit Version Catalog">
+    Update versions in `gradle/libs.versions.toml`
+  </Step>
+  
+  <Step title="Sync Project">
+    ```bash
+    ./gradlew --refresh-dependencies
+    ```
+  </Step>
+  
+  <Step title="Verify Build">
+    ```bash
+    ./gradlew clean assembleDebug
+    ```
+  </Step>
+</Steps>
+
+## Room Database Schema
+
+Room database schemas are exported during build:
+
+```kotlin
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+```
+
+Schemas are saved to `app/schemas/` for version control and migration tracking.
+
+<Note>
+  Room schema files help track database changes across versions. Commit these files to version control.
+</Note>
+
+## Code Generation with KSP
+
+The project uses Kotlin Symbol Processing (KSP) for code generation:
+
+```kotlin
+plugins {
+    id("com.google.devtools.ksp") version "1.9.23-1.0.19"
+}
+
+dependencies {
+    ksp(libs.androidx.room.compiler)
+}
+```
+
+KSP generates Room DAO implementations and database classes during compilation.
+
+## Signing Configuration
+
+### Debug Signing
+
+Debug builds are automatically signed with the default Android debug keystore:
+
+- Location: `~/.android/debug.keystore`
+- Alias: `androiddebugkey`
+- Password: `android`
+
+### Release Signing
+
+For production releases, create a release keystore:
+
+<Steps>
+  <Step title="Generate Keystore">
+    ```bash
+    keytool -genkey -v -keystore mitension-release.keystore \
+      -alias mitension -keyalg RSA -keysize 2048 -validity 10000
+    ```
+  </Step>
+  
+  <Step title="Create keystore.properties">
+    Create `keystore.properties` in the project root (add to `.gitignore`):
+    
+    ```properties
+    storeFile=/path/to/mitension-release.keystore
+    storePassword=YOUR_STORE_PASSWORD
+    keyAlias=mitension
+    keyPassword=YOUR_KEY_PASSWORD
+    ```
+  </Step>
+  
+  <Step title="Update build.gradle.kts">
+    Add signing configuration to `app/build.gradle.kts`:
+    
+    ```kotlin
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+    }
+
+    android {
+        signingConfigs {
+            create("release") {
+                storeFile = file(keystoreProperties["storeFile"] ?: "")
+                storePassword = keystoreProperties["storePassword"] as? String
+                keyAlias = keystoreProperties["keyAlias"] as? String
+                keyPassword = keystoreProperties["keyPassword"] as? String
+            }
+        }
+        
+        buildTypes {
+            release {
+                signingConfig = signingConfigs.getByName("release")
+                isMinifyEnabled = true
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
+                )
+            }
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Build Signed APK">
+    ```bash
+    ./gradlew assembleRelease
+    ```
+    
+    Output: `app/build/outputs/apk/release/app-release.apk` (signed)
+  </Step>
+</Steps>
+
+<Warning>
+  **Never commit `keystore.properties` or the keystore file to version control!** Add them to `.gitignore`.
+</Warning>
+
+## ProGuard Configuration
+
+ProGuard rules are defined in `app/proguard-rules.pro`. Common rules for MiTensión:
+
+```proguard
+# Keep Room entities
+-keep class com.fxn.mitension.data.** { *; }
+
+# Keep Compose runtime
+-keep class androidx.compose.** { *; }
+-dontwarn androidx.compose.**
+
+# Keep Kotlin metadata
+-keep class kotlin.Metadata { *; }
+
+# Keep WorkManager
+-keep class androidx.work.** { *; }
+-dontwarn androidx.work.**
+```
+
+## Build Outputs
+
+After building, artifacts are located in:
+
+<CardGroup cols={2}>
+  <Card title="APK Files" icon="file-zipper">
+    `app/build/outputs/apk/[variant]/`
+    
+    - `app-debug.apk`
+    - `app-release.apk`
+  </Card>
+  
+  <Card title="App Bundles" icon="box">
+    `app/build/outputs/bundle/[variant]/`
+    
+    - `app-release.aab`
+  </Card>
+  
+  <Card title="Build Logs" icon="file-lines">
+    `app/build/outputs/logs/`
+    
+    - Compilation logs
+    - Lint reports
+  </Card>
+  
+  <Card title="Test Results" icon="clipboard-check">
+    `app/build/reports/tests/`
+    
+    - Unit test reports
+    - Instrumentation test reports
+  </Card>
+</CardGroup>
+
+## Version Management
+
+Update app version in `app/build.gradle.kts`:
+
+```kotlin
+defaultConfig {
+    versionCode = 2        // Increment for each release
+    versionName = "1.1.0"  // User-visible version
+}
+```
+
+<Tip>
+  **Version Code**: Integer incremented with each release (1, 2, 3...)
+  
+  **Version Name**: Semantic version string (1.0.0, 1.1.0, 2.0.0)
+</Tip>
+
+## Gradle Wrapper
+
+The project includes a Gradle wrapper for consistent builds:
+
+```bash
+# Use wrapper (recommended)
+./gradlew assembleDebug
+
+# Update wrapper version
+./gradlew wrapper --gradle-version=8.13
+```
+
+<Note>
+  Always use `./gradlew` instead of system-installed `gradle` to ensure consistent build environment across machines.
+</Note>
+
+## Common Build Tasks
+
+```bash
+# List all available tasks
+./gradlew tasks
+
+# Show project dependencies
+./gradlew dependencies
+
+# Check for dependency updates
+./gradlew dependencyUpdates
+
+# Analyze APK size
+./gradlew analyzeReleaseBundle
+
+# Generate build scan
+./gradlew build --scan
+```
+
+## Android Studio Build
+
+<Steps>
+  <Step title="Select Build Variant">
+    Open **Build Variants** panel (View → Tool Windows → Build Variants)
+    
+    Select:
+    - **debug** for development
+    - **release** for production
+  </Step>
+  
+  <Step title="Build APK">
+    **Build → Build Bundle(s) / APK(s) → Build APK(s)**
+  </Step>
+  
+  <Step title="Generate Signed Bundle">
+    **Build → Generate Signed Bundle / APK**
+    
+    Follow the wizard to select keystore and create signed release
+  </Step>
+</Steps>
+
+## Continuous Integration
+
+Example GitHub Actions workflow for building MiTensión:
+
+```yaml
+name: Build APK
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 11
+      uses: actions/setup-java@v3
+      with:
+        java-version: '11'
+        distribution: 'temurin'
+    
+    - name: Cache Gradle packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+    
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+    
+    - name: Build with Gradle
+      run: ./gradlew assembleDebug
+    
+    - name: Run tests
+      run: ./gradlew test
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: app-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Troubleshooting
+
+### Build Failures
+
+<AccordionGroup>
+  <Accordion title="KSP compilation errors">
+    ```bash
+    # Clean KSP generated code
+    ./gradlew clean
+    rm -rf app/build/generated/ksp
+    ./gradlew assembleDebug
+    ```
+  </Accordion>
+  
+  <Accordion title="Dependency resolution failures">
+    ```bash
+    # Clear dependency cache
+    ./gradlew clean --refresh-dependencies
+    rm -rf ~/.gradle/caches
+    ```
+  </Accordion>
+  
+  <Accordion title="Out of memory errors">
+    Add to `gradle.properties`:
+    
+    ```properties
+    org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=512m
+    ```
+  </Accordion>
+  
+  <Accordion title="Compose compiler version mismatch">
+    Ensure Kotlin and Compose compiler versions are compatible:
+    
+    - Kotlin 1.9.23 → Compose Compiler 1.5.11
+    
+    Update in `app/build.gradle.kts`:
+    
+    ```kotlin
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.11"
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Performance Optimization
+
+<CardGroup cols={2}>
+  <Card title="Enable Build Cache" icon="database">
+    Add to `gradle.properties`:
+    
+    ```properties
+    org.gradle.caching=true
+    ```
+  </Card>
+  
+  <Card title="Parallel Builds" icon="arrows-split-up-and-left">
+    ```properties
+    org.gradle.parallel=true
+    ```
+  </Card>
+  
+  <Card title="Configuration Cache" icon="bolt">
+    ```properties
+    org.gradle.configuration-cache=true
+    ```
+  </Card>
+  
+  <Card title="Incremental Compilation" icon="gears">
+    Already enabled by default in Kotlin 1.9.23
+  </Card>
+</CardGroup>
+
+<Tip>
+  For faster builds during development, use `./gradlew assembleDebug --offline` when dependencies haven't changed.
+</Tip>

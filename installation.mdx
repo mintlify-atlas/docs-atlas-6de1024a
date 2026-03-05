@@ -1,0 +1,337 @@
+---
+title: Installation
+description: Build and install MiTensión on your Android device
+---
+
+## Prerequisites
+
+Before building MiTensión, ensure you have the following installed:
+
+<Steps>
+  <Step title="Java Development Kit (JDK)">
+    Install JDK 11 or higher. The project is configured to use Java 11.
+    
+    ```bash
+    # Verify Java installation
+    java -version
+    ```
+  </Step>
+  
+  <Step title="Android Studio">
+    Download and install [Android Studio](https://developer.android.com/studio) (latest stable version recommended).
+  </Step>
+  
+  <Step title="Android SDK">
+    Ensure you have Android SDK installed with the following components:
+    - Android SDK Platform 36
+    - Android SDK Build-Tools
+    - Android SDK Platform-Tools
+  </Step>
+  
+  <Step title="Git">
+    Install Git to clone the repository.
+    
+    ```bash
+    # Verify Git installation
+    git --version
+    ```
+  </Step>
+</Steps>
+
+## Clone the Repository
+
+Clone the MiTensión source code from your repository:
+
+```bash
+git clone <repository-url>
+cd MiTension
+```
+
+<Note>
+Replace `<repository-url>` with the actual URL of the MiTensión repository.
+</Note>
+
+## Project Configuration
+
+The project uses Gradle with Kotlin DSL for build configuration. Here are the key specifications:
+
+**Build Configuration** (`app/build.gradle.kts`):
+
+```kotlin
+android {
+    namespace = "com.fxn.mitension"
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = "com.fxn.mitension"
+        minSdk = 31
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0"
+    }
+}
+```
+
+**Plugin Versions**:
+- Kotlin: 1.9.23
+- KSP (Kotlin Symbol Processing): 1.9.23-1.0.19
+- Compose Compiler: 1.5.11
+
+## Build the App
+
+You can build the app using either Android Studio or the command line.
+
+<Tabs>
+  <Tab title="Using Android Studio">
+    <Steps>
+      <Step title="Open the Project">
+        1. Launch Android Studio
+        2. Select **File > Open**
+        3. Navigate to the cloned `MiTension` directory
+        4. Click **OK** to open the project
+      </Step>
+      
+      <Step title="Sync Gradle">
+        Android Studio will automatically sync Gradle dependencies. If not:
+        1. Click **File > Sync Project with Gradle Files**
+        2. Wait for the sync to complete
+      </Step>
+      
+      <Step title="Build APK">
+        To build a debug APK:
+        1. Select **Build > Build Bundle(s) / APK(s) > Build APK(s)**
+        2. Wait for the build to complete
+        3. Click **locate** in the notification to find the APK
+        
+        The APK will be located at:
+        ```
+        app/build/outputs/apk/debug/app-debug.apk
+        ```
+      </Step>
+      
+      <Step title="Build Release APK (Optional)">
+        For a release build:
+        1. Select **Build > Generate Signed Bundle / APK**
+        2. Choose **APK**
+        3. Configure your signing key or create a new one
+        4. Select **release** build variant
+        5. Click **Finish**
+      </Step>
+    </Steps>
+  </Tab>
+  
+  <Tab title="Using Command Line">
+    <Steps>
+      <Step title="Grant Execute Permission">
+        Make the Gradle wrapper executable:
+        
+        ```bash
+        chmod +x gradlew
+        ```
+      </Step>
+      
+      <Step title="Build Debug APK">
+        Build the debug version:
+        
+        ```bash
+        ./gradlew assembleDebug
+        ```
+        
+        The APK will be generated at:
+        ```
+        app/build/outputs/apk/debug/app-debug.apk
+        ```
+      </Step>
+      
+      <Step title="Build Release APK (Optional)">
+        Build the release version:
+        
+        ```bash
+        ./gradlew assembleRelease
+        ```
+        
+        <Note>
+        You'll need to configure signing for release builds. The current configuration has `isMinifyEnabled = false` for simplicity.
+        </Note>
+      </Step>
+      
+      <Step title="Clean Build (If Needed)">
+        If you encounter issues, clean the build:
+        
+        ```bash
+        ./gradlew clean
+        ./gradlew assembleDebug
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Install the App
+
+Once the APK is built, install it on your Android device.
+
+<Steps>
+  <Step title="Enable Developer Options">
+    On your Android device:
+    1. Go to **Settings > About phone**
+    2. Tap **Build number** 7 times to enable Developer Options
+    3. Go back to **Settings > System > Developer options**
+    4. Enable **USB debugging**
+  </Step>
+  
+  <Step title="Connect Your Device">
+    Connect your Android device to your computer via USB.
+    
+    ```bash
+    # Verify device is connected
+    adb devices
+    ```
+    
+    You should see your device listed.
+  </Step>
+  
+  <Step title="Install APK">
+    Install the APK using ADB:
+    
+    ```bash
+    adb install app/build/outputs/apk/debug/app-debug.apk
+    ```
+    
+    Or from Android Studio:
+    1. Select your device from the device dropdown
+    2. Click the **Run** button (green triangle)
+  </Step>
+  
+  <Step title="Grant Permissions">
+    When you first launch the app:
+    
+    <Note>
+    On Android 13 (API 33) and higher, the app will request notification permission for reminders. This is optional but recommended for the reminder feature.
+    </Note>
+    
+    Tap **Allow** when prompted for notification permission.
+  </Step>
+</Steps>
+
+## Alternative Installation Methods
+
+<Accordion title="Install via File Transfer">
+  If you don't have USB debugging enabled:
+  
+  1. Copy the APK file to your device (via email, cloud storage, etc.)
+  2. On your device, locate the APK file
+  3. Tap the APK to install
+  4. You may need to enable **Install from Unknown Sources** in Settings
+</Accordion>
+
+<Accordion title="Install on Emulator">
+  To test on an Android emulator:
+  
+  1. Open **AVD Manager** in Android Studio
+  2. Create a virtual device with **API level 31 or higher**
+  3. Start the emulator
+  4. Run the app from Android Studio or use:
+     ```bash
+     adb install app/build/outputs/apk/debug/app-debug.apk
+     ```
+</Accordion>
+
+## Verify Installation
+
+After installation, verify that MiTensión is working correctly:
+
+<Steps>
+  <Step title="Launch the App">
+    Find and tap the **MiTensión** icon in your app drawer.
+  </Step>
+  
+  <Step title="Check Initial Screen">
+    You should see the measurement screen showing:
+    - Current time period (Morning, Afternoon, or Night)
+    - Measurement counter (Measurement 1/3)
+    - Two input fields for systolic and diastolic values
+    - Save and View Calendar buttons
+  </Step>
+  
+  <Step title="Verify Reminders (Optional)">
+    Background reminders are configured to run every 2 hours using WorkManager. These will start automatically after installation.
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Build fails with 'SDK not found'">
+    Ensure Android SDK is properly installed:
+    1. Open Android Studio
+    2. Go to **Tools > SDK Manager**
+    3. Install Android SDK Platform 36
+    4. Set `ANDROID_HOME` environment variable
+  </Accordion>
+  
+  <Accordion title="App crashes on launch">
+    Verify your device meets the minimum requirements:
+    - Android 12 (API 31) or higher
+    - Check logcat for error messages:
+      ```bash
+      adb logcat | grep MiTension
+      ```
+  </Accordion>
+  
+  <Accordion title="Cannot install APK on device">
+    - Ensure USB debugging is enabled
+    - Check device is properly connected: `adb devices`
+    - Uninstall previous versions: `adb uninstall com.fxn.mitension`
+    - Enable "Install from Unknown Sources" if installing manually
+  </Accordion>
+  
+  <Accordion title="Gradle sync fails">
+    - Check your internet connection
+    - Clear Gradle cache:
+      ```bash
+      ./gradlew clean --refresh-dependencies
+      ```
+    - Verify Kotlin version 1.9.23 is properly configured
+  </Accordion>
+</AccordionGroup>
+
+## Project Structure
+
+Here's an overview of the MiTensión project structure:
+
+```
+MiTension/
+├── app/
+│   ├── src/
+│   │   ├── main/
+│   │   │   ├── java/com/fxn/mitension/
+│   │   │   │   ├── MainActivity.kt
+│   │   │   │   ├── MiTensionApplication.kt
+│   │   │   │   ├── data/              # Room database entities and DAOs
+│   │   │   │   ├── ui/                # Compose screens and ViewModels
+│   │   │   │   ├── util/              # Helper classes and enums
+│   │   │   │   └── alarm/             # WorkManager reminder worker
+│   │   │   ├── res/
+│   │   │   │   ├── values/            # Spanish strings (default)
+│   │   │   │   ├── values-en/         # English strings
+│   │   │   │   └── values-gl/         # Galician strings
+│   │   │   └── AndroidManifest.xml
+│   │   ├── test/                      # Unit tests
+│   │   └── androidTest/               # Instrumented tests
+│   ├── build.gradle.kts
+│   └── schemas/                       # Room database schemas
+├── build.gradle.kts
+└── settings.gradle.kts
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+    Learn how to use MiTensión to record and track your blood pressure
+  </Card>
+  <Card title="Introduction" icon="book" href="/introduction">
+    Learn more about MiTensión's features and technology stack
+  </Card>
+</CardGroup>

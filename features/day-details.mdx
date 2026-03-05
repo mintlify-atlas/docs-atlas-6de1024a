@@ -1,0 +1,367 @@
+---
+title: Day Details View
+description: View detailed blood pressure measurements for a specific day, organized by time period
+---
+
+## Overview
+
+The Day Details screen provides a comprehensive breakdown of all blood pressure measurements for a selected day. Measurements are grouped by time period (morning, afternoon, evening) with automatic average calculations and color-coded status indicators.
+
+## Screen Structure
+
+### Navigation
+
+The day details screen is accessed by tapping a day in the calendar view:
+
+```kotlin
+onDiaClick = { dia ->
+    onNavigateToDiaDetalle(
+        uiState.anioMes.year, 
+        uiState.anioMes.monthValue, 
+        dia
+    )
+}
+```
+
+Source: `CalendarioScreen.kt:122-126`
+
+### Top Bar
+
+Displays the selected day in the title:
+
+```kotlin
+Scaffold(
+    topBar = {
+        TopAppBar(
+            title = { Text(stringResource(id = R.string.detalle_dia_titulo, uiState.dia)) }
+        )
+    },
+    bottomBar = {
+        BottomAppBar {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Button(onClick = onNavigateBack) {
+                    Text(stringResource(id = R.string.volver_al_calendario))
+                }
+            }
+        }
+    }
+)
+```
+
+Source: `DiaDetalleScreen.kt:44-61`
+
+## Measurement Organization
+
+### Period Grouping
+
+Measurements are automatically grouped by their time period:
+
+```kotlin
+PeriodoDelDia.entries.forEach { periodo ->
+    val medicionesDelPeriodo = uiState.medicionesAgrupadas[periodo]
+    if (!medicionesDelPeriodo.isNullOrEmpty()) {
+        // Show period header
+        item {
+            PeriodoHeader(periodo)
+        }
+        // Show each measurement
+        items(medicionesDelPeriodo) { medicion ->
+            MedicionItem(medicion)
+        }
+        // Calculate and show averages
+        val mediaSistolica = medicionesDelPeriodo.map { it.sistolica }.average().toInt()
+        val mediaDiastolica = medicionesDelPeriodo.map { it.diastolica }.average().toInt()
+        val estadoDeLaTension = clasificarTension(mediaSistolica, mediaDiastolica)
+
+        item {
+            val colorDeEstado = obtenerColorPorEstado(estado = estadoDeLaTension)
+            PeriodoMediaItem(
+                mediaSistolica = mediaSistolica,
+                mediaDiastolica = mediaDiastolica,
+                colorFondo = colorDeEstado
+            )
+        }
+    }
+}
+```
+
+Source: `DiaDetalleScreen.kt:71-101`
+
+### Period Headers
+
+Each time period with measurements gets a header:
+
+```kotlin
+@Composable
+fun PeriodoHeader(periodo: PeriodoDelDia) {
+    val nombrePeriodo = when (periodo) {
+        PeriodoDelDia.MAÑANA -> stringResource(id = R.string.periodo_manana)
+        PeriodoDelDia.TARDE -> stringResource(id = R.string.periodo_tarde)
+        PeriodoDelDia.NOCHE -> stringResource(id = R.string.periodo_noche)
+    }
+    Text(
+        text = nombrePeriodo,
+        style = MaterialTheme.typography.headlineSmall,
+        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+    )
+}
+```
+
+Source: `DiaDetalleScreen.kt:107-118`
+
+## Individual Measurement Cards
+
+### Measurement Display
+
+Each measurement is shown in a card with systolic, diastolic values and timestamp:
+
+```kotlin
+@Composable
+fun MedicionItem(medicion: Medicion) {
+    val timeFormatter = remember { 
+        java.time.format.DateTimeFormatter.ofPattern("HH:mm") 
+    }
+    val hora = Instant.ofEpochMilli(medicion.timestamp)
+        .atZone(ZoneId.systemDefault())
+        .toLocalTime()
+        .format(timeFormatter)
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(id = R.string.tension_alta_label_corta) + 
+                       ": ${medicion.sistolica}",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = stringResource(id = R.string.tension_baja_label_corta) + 
+                       ": ${medicion.diastolica}",
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = hora,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Light
+            )
+        }
+    }
+}
+```
+
+Source: `DiaDetalleScreen.kt:121-153`
+
+<Info>
+Timestamps are automatically converted from Unix milliseconds to human-readable time format (HH:mm) using the device's local timezone.
+</Info>
+
+## Period Averages
+
+### Average Calculation
+
+After displaying all measurements in a period, the app calculates and displays the average:
+
+```kotlin
+val mediaSistolica = medicionesDelPeriodo.map { it.sistolica }.average().toInt()
+val mediaDiastolica = medicionesDelPeriodo.map { it.diastolica }.average().toInt()
+```
+
+Source: `DiaDetalleScreen.kt:84-85`
+
+The average is then classified according to AHA guidelines:
+
+```kotlin
+val estadoDeLaTension = clasificarTension(mediaSistolica, mediaDiastolica)
+val colorDeEstado = obtenerColorPorEstado(estado = estadoDeLaTension)
+```
+
+Source: `DiaDetalleScreen.kt:87`, `92`
+
+### Color-Coded Average Card
+
+The average is displayed in a prominent card with background color indicating blood pressure status:
+
+```kotlin
+@Composable
+fun PeriodoMediaItem(mediaSistolica: Int, mediaDiastolica: Int, colorFondo: Color) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = colorFondo
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = stringResource(id = R.string.media_label),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color.White  // White text for contrast
+            )
+            Text(
+                text = "$mediaSistolica / $mediaDiastolica",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+        }
+    }
+}
+```
+
+Source: `DiaDetalleScreen.kt:156-190`
+
+<Note>
+The average card uses white text to ensure readability against dark background colors (red, dark red, crimson) used for high blood pressure states.
+</Note>
+
+## Layout Structure
+
+### LazyColumn Implementation
+
+The screen uses `LazyColumn` for efficient rendering of variable-length measurement lists:
+
+```kotlin
+LazyColumn(
+    modifier = Modifier
+        .fillMaxSize()
+        .padding(paddingValues)
+        .padding(16.dp),
+    verticalArrangement = Arrangement.spacedBy(16.dp)
+) {
+    PeriodoDelDia.entries.forEach { periodo ->
+        val medicionesDelPeriodo = uiState.medicionesAgrupadas[periodo]
+        if (!medicionesDelPeriodo.isNullOrEmpty()) {
+            item { PeriodoHeader(periodo) }
+            items(medicionesDelPeriodo) { medicion ->
+                MedicionItem(medicion)
+            }
+            item { PeriodoMediaItem(...) }
+        }
+    }
+}
+```
+
+Source: `DiaDetalleScreen.kt:63-102`
+
+## Visual Hierarchy
+
+<Steps>
+  <Step title="Period Header">
+    Large, bold text indicates the time period (Mañana, Tarde, Noche)
+    
+    Uses `MaterialTheme.typography.headlineSmall` for prominence
+  </Step>
+  
+  <Step title="Individual Measurements">
+    White cards with subtle elevation (2.dp) contain each measurement
+    
+    Shows: Systolic value, Diastolic value, and Time recorded
+  </Step>
+  
+  <Step title="Period Average">
+    Color-coded card with higher elevation (4.dp) stands out from individual measurements
+    
+    Background color indicates blood pressure classification
+  </Step>
+  
+  <Step title="Spacing">
+    16.dp spacing between all items ensures clear visual separation
+    
+    ```kotlin
+    verticalArrangement = Arrangement.spacedBy(16.dp)
+    ```
+  </Step>
+</Steps>
+
+## State Management
+
+The screen receives grouped measurements from the ViewModel:
+
+```kotlin
+val context = LocalContext.current
+val repository = remember { 
+    MedicionRepository(AppDatabase.getDatabase(context).medicionDao()) 
+}
+val factory = remember { DiaDetalleViewModelFactory(repository) }
+val viewModel: DiaDetalleViewModel = viewModel(factory = factory)
+
+val uiState by viewModel.uiState.collectAsState()
+```
+
+Source: `DiaDetalleScreen.kt:37-43`
+
+The UI state contains measurements grouped by period:
+
+```kotlin
+data class DiaDetalleUiState(
+    val dia: String,
+    val medicionesAgrupadas: Map<PeriodoDelDia, List<Medicion>>
+)
+```
+
+## Example Flow
+
+<CardGroup cols={1}>
+  <Card title="Morning Period" icon="sunrise">
+    **Mañana**
+    
+    - 08:15 → 125/82
+    - 09:30 → 128/85
+    - 11:00 → 122/80
+    
+    **Media: 125/82** (displayed on orange background - Stage 1 Hypertension)
+  </Card>
+  
+  <Card title="Afternoon Period" icon="sun">
+    **Tarde**
+    
+    - 14:20 → 118/76
+    - 16:45 → 120/78
+    - 18:00 → 115/74
+    
+    **Media: 118/76** (displayed on green background - Normal)
+  </Card>
+  
+  <Card title="Evening Period" icon="moon">
+    **Noche**
+    
+    - 20:30 → 132/88
+    - 21:45 → 135/90
+    - 23:00 → 130/86
+    
+    **Media: 132/88** (displayed on red background - Stage 1 Hypertension)
+  </Card>
+</CardGroup>
+
+## Navigation Back
+
+Users can return to the calendar view using the bottom bar button:
+
+```kotlin
+Button(onClick = onNavigateBack) {
+    Text(stringResource(id = R.string.volver_al_calendario))
+}
+```
+
+Source: `DiaDetalleScreen.kt:56-58`
+
+<Info>
+The day details view provides medical-grade precision by showing both individual measurements and calculated averages, making it easy to identify outliers and assess overall daily blood pressure control.
+</Info>

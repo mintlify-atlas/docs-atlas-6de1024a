@@ -1,0 +1,109 @@
+---
+title: Changelog
+description: Version history and notable changes to MiTensión
+icon: clock-rotate-left
+---
+
+All notable changes to the MiTensión project are documented here. The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## Version 1.0.0
+
+<Note>
+  **Release Date:** December 7, 2025
+  
+  First functional version of MiTensión with complete blood pressure tracking capabilities.
+</Note>
+
+### Added
+
+<AccordionGroup>
+  <Accordion title="Architecture and Configuration" icon="code">
+    - Project initialized in Kotlin with Jetpack Compose and MVVM architecture
+    - Integration of **Room database** for data persistence with Repository pattern
+    - Configuration of unit tests (`JUnit`, `MockK`, `Turbine`) and instrumented tests (`Compose Test Rule`)
+    - Support for internationalization (i18n) with texts in **Spanish, English, and Galician**
+  </Accordion>
+
+  <Accordion title="Measurement Screen" icon="heart-pulse">
+    - Interface for entering systolic and diastolic blood pressure
+    - Dynamic title indicating time of day (Morning, Afternoon, Night) and measurement progress (e.g., "Measurement 1/3")
+    - Business logic to limit 3 measurements per period
+    - Notification system when period quota is full, preventing additional entries
+    - Field validation ensuring both values are required before saving
+  </Accordion>
+
+  <Accordion title="Calendar Screen" icon="calendar">
+    - Monthly calendar view with navigation to change month and year
+    - **Heat map visualization**: Each day displays 3 color indicators representing average blood pressure for each period (Morning, Afternoon, Night)
+    - Quick visual assessment of blood pressure trends over time
+  </Accordion>
+
+  <Accordion title="Day Detail Screen" icon="list">
+    - Detailed list of measurements for a specific day, grouped by period
+    - Featured card displaying **average blood pressure** for each period
+    - Average card changes color (green, orange, red, etc.) based on blood pressure classification following health guidelines
+    - Immediate visual feedback on blood pressure status
+  </Accordion>
+
+  <Accordion title="Reminders and Notifications" icon="bell">
+    - Implementation of **WorkManager** for scheduling reliable periodic reminders
+    - Background Worker checks if user has completed measurements for current period
+    - Sends notification to user with custom icon when measurements are pending
+    - Request notification permissions on Android 13+ to comply with system policies
+  </Accordion>
+</AccordionGroup>
+
+### Changed
+
+<CardGroup cols={2}>
+  <Card title="UI/UX Improvements" icon="palette">
+    - Adjusted button font sizes for better visualization with long text in different languages
+    - Simplified detail view showing "High" and "Low" instead of complete labels for cleaner interface
+  </Card>
+
+  <Card title="Architecture Refactoring" icon="diagram-project">
+    - Refactored UI-ViewModel communication so ViewModels don't directly access Android resources (`R.string`, etc.)
+    - Improved testability and separation of concerns
+  </Card>
+
+  <Card title="Database Enhancement" icon="database">
+    - Implemented Room `Callback` to populate database with test data ("seeding") on first creation
+    - Facilitates development and UI verification
+  </Card>
+</CardGroup>
+
+### Fixed
+
+<Steps>
+  <Step title="Gradle Configuration">
+    Resolved multiple Gradle configuration issues related to version incompatibility between `Kotlin`, `KSP`, and `Compose` compiler.
+  </Step>
+  
+  <Step title="Resource Files">
+    Fixed compilation errors in `strings.xml` resource files due to incorrect XML syntax.
+  </Step>
+  
+  <Step title="Test Suite">
+    Corrected unit and instrumented tests to ensure proper functionality and reliability.
+  </Step>
+</Steps>
+
+---
+
+## Version Details
+
+<CardGroup cols={2}>
+  <Card title="Current Version" icon="tag">
+    **1.0.0** (Build 1)
+  </Card>
+  
+  <Card title="Android Requirements" icon="android">
+    - **Min SDK:** 31 (Android 12)
+    - **Target SDK:** 35 (Android 14)
+    - **Compile SDK:** 36
+  </Card>
+</CardGroup>
+
+<Note>
+  For upcoming features and planned improvements, check the project's GitHub repository or contact the development team.
+</Note>

@@ -1,0 +1,304 @@
+---
+title: Contributing Guidelines
+description: How to contribute to the MiTensión project
+icon: code-pull-request
+---
+
+We welcome contributions to MiTensión! This guide will help you get started with contributing code, reporting issues, and submitting pull requests.
+
+## Getting Started
+
+<Steps>
+  <Step title="Fork and Clone">
+    Fork the repository and clone it to your local machine:
+    
+    ```bash
+    git clone https://github.com/your-username/mitension.git
+    cd mitension
+    ```
+  </Step>
+  
+  <Step title="Set Up Development Environment">
+    Ensure you have the following installed:
+    
+    - **Android Studio** (latest stable version)
+    - **JDK 11** or higher
+    - **Kotlin 1.9.23**
+    - **Android SDK 31+**
+  </Step>
+  
+  <Step title="Open Project">
+    Open the project in Android Studio and let Gradle sync all dependencies.
+  </Step>
+  
+  <Step title="Run the App">
+    Build and run the app on an emulator or physical device to ensure everything works:
+    
+    ```bash
+    ./gradlew assembleDebug
+    ```
+  </Step>
+</Steps>
+
+## Project Structure
+
+<Note>
+  Understanding the project structure will help you navigate and contribute effectively.
+</Note>
+
+```xml
+app/src/
+├── main/
+│   ├── java/com/fxn/mitension/
+│   │   ├── data/              # Database entities, DAOs, and repositories
+│   │   ├── ui/
+│   │   │   ├── screens/       # Compose UI screens
+│   │   │   ├── theme/         # App theming and colors
+│   │   │   └── viewmodel/     # ViewModels and UI state
+│   │   ├── util/              # Utility classes and helpers
+│   │   ├── alarm/             # WorkManager for notifications
+│   │   ├── MainActivity.kt
+│   │   └── MiTensionApplication.kt
+│   └── res/
+│       ├── values/            # Spanish strings (default)
+│       ├── values-en/         # English strings
+│       └── values-gl/         # Galician strings
+├── test/                      # Unit tests
+└── androidTest/               # Instrumented tests
+```
+
+## Development Guidelines
+
+### Architecture
+
+<CardGroup cols={2}>
+  <Card title="MVVM Pattern" icon="layer-group">
+    Follow the Model-View-ViewModel architecture pattern used throughout the project.
+  </Card>
+  
+  <Card title="Repository Pattern" icon="database">
+    Use the Repository pattern for data access. All database operations go through repositories.
+  </Card>
+  
+  <Card title="Jetpack Compose" icon="paintbrush">
+    Build UI with Compose. Avoid mixing XML layouts with Compose.
+  </Card>
+  
+  <Card title="Room Database" icon="table">
+    Use Room for data persistence. Update schema version when modifying entities.
+  </Card>
+</CardGroup>
+
+### Code Style
+
+<AccordionGroup>
+  <Accordion title="Kotlin Conventions" icon="code">
+    - Follow [Kotlin coding conventions](https://kotlinlang.org/docs/coding-conventions.html)
+    - Use meaningful variable and function names in Spanish or English consistently
+    - Add KDoc comments for public APIs and complex logic
+    - Prefer immutability: use `val` over `var` when possible
+  </Accordion>
+  
+  <Accordion title="Compose Best Practices" icon="puzzle-piece">
+    - Keep composables small and focused
+    - Hoist state when necessary
+    - Use `remember` and `rememberSaveable` appropriately
+    - Pass callbacks for events, not ViewModels
+  </Accordion>
+  
+  <Accordion title="ViewModels" icon="window-maximize">
+    - ViewModels should NOT access Android resources directly (`R.string`, `Context`, etc.)
+    - Use dependency injection or pass necessary data from UI layer
+    - Expose UI state via `StateFlow` or `State`
+  </Accordion>
+</AccordionGroup>
+
+## Testing Requirements
+
+<Note>
+  All new features and bug fixes should include appropriate tests.
+</Note>
+
+### Unit Tests
+
+Located in `app/src/test/`, unit tests verify business logic without Android dependencies.
+
+**Technologies:**
+- `JUnit` - Test framework
+- `MockK` - Mocking library
+- `Turbine` - Flow testing
+- `kotlinx-coroutines-test` - Coroutine testing
+
+**Run unit tests:**
+
+```bash
+./gradlew test
+```
+
+**Example test structure:**
+
+```kotlin
+class MedicionViewModelTest {
+    @Test
+    fun `test measurement validation`() {
+        // Arrange
+        val viewModel = MedicionViewModel(repository)
+        
+        // Act
+        viewModel.validateMeasurement(120, 80)
+        
+        // Assert
+        assertTrue(viewModel.isValid)
+    }
+}
+```
+
+### Instrumented Tests
+
+Located in `app/src/androidTest/`, these tests run on Android devices or emulators.
+
+**Technologies:**
+- `Compose Test Rule` - UI testing for Compose
+- `Espresso` - Android UI testing
+- `JUnit` - Test framework
+
+**Run instrumented tests:**
+
+```bash
+./gradlew connectedAndroidTest
+```
+
+## Internationalization
+
+<Warning>
+  When adding new strings, you MUST provide translations for all supported languages.
+</Warning>
+
+MiTensión supports three languages:
+
+<CardGroup cols={3}>
+  <Card title="Spanish (default)" icon="language">
+    `res/values/strings.xml`
+  </Card>
+  
+  <Card title="English" icon="language">
+    `res/values-en/strings.xml`
+  </Card>
+  
+  <Card title="Galician" icon="language">
+    `res/values-gl/strings.xml`
+  </Card>
+</CardGroup>
+
+When adding a new string:
+
+1. Add the string to `values/strings.xml` (Spanish)
+2. Add English translation to `values-en/strings.xml`
+3. Add Galician translation to `values-gl/strings.xml`
+
+See the [Internationalization](/resources/internationalization) page for more details.
+
+## Submitting Changes
+
+### Pull Request Process
+
+<Steps>
+  <Step title="Create Feature Branch">
+    Create a new branch for your feature or bug fix:
+    
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+  
+  <Step title="Make Changes">
+    - Write clean, well-documented code
+    - Follow the architecture patterns
+    - Add tests for new functionality
+    - Update documentation if needed
+  </Step>
+  
+  <Step title="Test Thoroughly">
+    Run all tests before submitting:
+    
+    ```bash
+    ./gradlew test connectedAndroidTest
+    ```
+  </Step>
+  
+  <Step title="Commit Changes">
+    Write clear, descriptive commit messages:
+    
+    ```bash
+    git commit -m "Add feature: measurement export functionality"
+    ```
+  </Step>
+  
+  <Step title="Push and Create PR">
+    Push your branch and create a pull request:
+    
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+    
+    Include a clear description of:
+    - What changes were made
+    - Why the changes were necessary
+    - Any related issues
+  </Step>
+</Steps>
+
+### PR Checklist
+
+Before submitting your pull request, ensure:
+
+- [ ] Code follows project conventions and style
+- [ ] All tests pass (unit and instrumented)
+- [ ] New features include appropriate tests
+- [ ] All new strings are translated to Spanish, English, and Galician
+- [ ] No Android resources (`R.string`, etc.) accessed directly in ViewModels
+- [ ] Documentation is updated if needed
+- [ ] Commit messages are clear and descriptive
+
+## Reporting Issues
+
+<CardGroup cols={2}>
+  <Card title="Bug Reports" icon="bug">
+    When reporting bugs, include:
+    - Device and Android version
+    - Steps to reproduce
+    - Expected vs actual behavior
+    - Screenshots if applicable
+  </Card>
+  
+  <Card title="Feature Requests" icon="lightbulb">
+    For feature requests, describe:
+    - The problem it solves
+    - Proposed solution
+    - Any alternative approaches
+  </Card>
+</CardGroup>
+
+## Code Review
+
+All submissions require review. We use GitHub pull requests for this purpose. Reviewers will check:
+
+- Code quality and adherence to conventions
+- Test coverage
+- Architecture compliance
+- Internationalization completeness
+- Performance implications
+
+<Note>
+  Be open to feedback and willing to make changes. Code review helps maintain code quality and knowledge sharing.
+</Note>
+
+## Questions?
+
+If you have questions about contributing, feel free to:
+
+- Open a GitHub issue with the "question" label
+- Review existing documentation
+- Check closed issues for similar questions
+
+Thank you for contributing to MiTensión!

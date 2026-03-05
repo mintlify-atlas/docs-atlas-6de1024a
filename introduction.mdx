@@ -1,0 +1,125 @@
+---
+title: Introduction
+description: Learn about MiTensión, a modern Android app for tracking your blood pressure measurements
+---
+
+## Welcome to MiTensión
+
+MiTensión is a comprehensive Android application designed to help you monitor and track your blood pressure (tension arterial) throughout the day. Built with modern Android development practices, the app provides an intuitive interface for recording measurements and viewing your blood pressure history.
+
+<CardGroup cols={2}>
+  <Card title="Easy Recording" icon="heart-pulse">
+    Record systolic and diastolic readings quickly with a streamlined interface
+  </Card>
+  <Card title="Calendar View" icon="calendar">
+    Visualize your measurements in a color-coded monthly calendar
+  </Card>
+  <Card title="Smart Reminders" icon="bell">
+    Get periodic notifications to remind you to take your measurements
+  </Card>
+  <Card title="Time-Based Tracking" icon="clock">
+    Track up to 3 measurements per period (morning, afternoon, night)
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Blood Pressure Classification
+
+MiTensión uses the American Heart Association (AHA) guidelines to automatically classify your blood pressure readings:
+
+- **Hypotension (Low)**: Systolic < 90 or Diastolic < 60
+- **Normal**: Systolic < 120 and Diastolic < 80
+- **Elevated**: Systolic 120-129 and Diastolic < 80
+- **Hypertension Stage 1**: Systolic 130-139 or Diastolic 80-89
+- **Hypertension Stage 2**: Systolic ≥ 140 or Diastolic ≥ 90
+- **Hypertensive Crisis**: Systolic > 180 or Diastolic > 120
+
+Each classification is color-coded for quick visual reference in the calendar view.
+
+### Time Period Management
+
+The app intelligently organizes measurements into three daily periods:
+
+- **Morning (Mañana)**: 00:01 - 12:30
+- **Afternoon (Tarde)**: 12:31 - 19:00
+- **Night (Noche)**: 19:01 - 00:00
+
+You can record up to 3 measurements per period, and the app calculates the average for each period automatically.
+
+### Multi-Language Support
+
+MiTensión supports multiple languages to serve a wider audience:
+
+- Spanish (Español)
+- English
+- Galician (Galego)
+
+## Technology Stack
+
+MiTensión is built using cutting-edge Android development technologies:
+
+<CardGroup cols={2}>
+  <Card title="Jetpack Compose" icon="mobile">
+    Modern declarative UI toolkit for building native Android interfaces
+  </Card>
+  <Card title="Room Database" icon="database">
+    Local SQLite database for storing measurements offline
+  </Card>
+  <Card title="WorkManager" icon="gear">
+    Background task scheduling for periodic reminder notifications
+  </Card>
+  <Card title="Material 3" icon="palette">
+    Latest Material Design components for a beautiful, consistent UI
+  </Card>
+</CardGroup>
+
+### Architecture
+
+The app follows **MVVM (Model-View-ViewModel)** architecture pattern with:
+
+- **Kotlin** as the primary language
+- **Jetpack Compose** for UI
+- **Coroutines** and **Flow** for asynchronous operations
+- **Room** for data persistence
+- **ViewModel** for managing UI state
+- **Repository pattern** for data abstraction
+
+## Requirements
+
+<Note>
+MiTensión requires Android 12 (API level 31) or higher.
+</Note>
+
+**Technical specifications:**
+- **Minimum SDK**: 31 (Android 12)
+- **Target SDK**: 35 (Android 14)
+- **Compile SDK**: 36
+- **Kotlin Version**: 1.9.23
+- **Compose Compiler**: 1.5.11
+
+## Privacy & Data
+
+All your blood pressure measurements are stored locally on your device using Room database. The app:
+
+- **Does not require internet connection** to function
+- **Does not send data to external servers**
+- **Stores all measurements locally** on your device
+- **Requires notification permission** only for reminder functionality (Android 13+)
+
+<Warning>
+This app is for tracking purposes only and should not replace professional medical advice. Always consult with healthcare professionals for medical decisions.
+</Warning>
+
+## Next Steps
+
+Ready to get started? Follow these guides:
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Build the app from source and install it on your device
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Learn how to record your first measurement and navigate the app
+  </Card>
+</CardGroup>

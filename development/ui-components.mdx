@@ -1,0 +1,822 @@
+---
+title: "UI Components"
+description: "Jetpack Compose components and Material Design 3 theming in MiTensión"
+---
+
+## Overview
+
+MiTensión uses **Jetpack Compose** for building declarative, reactive UI components. The app follows **Material Design 3** principles with custom theming for a modern, accessible blood pressure tracking experience.
+
+<CardGroup cols={3}>
+  <Card title="Jetpack Compose" icon="layer-group">
+    Declarative UI framework for Android
+  </Card>
+  <Card title="Material 3" icon="palette">
+    Modern design system with dynamic colors
+  </Card>
+  <Card title="Custom Components" icon="puzzle-piece">
+    Reusable composables for MiTensión
+  </Card>
+</CardGroup>
+
+## Theme Configuration
+
+### Color Scheme
+
+MiTensión defines color palettes for light and dark themes:
+
+```kotlin
+// Color.kt
+val Purple80 = Color(0xFFD0BCFF)
+val PurpleGrey80 = Color(0xFFCCC2DC)
+val Pink80 = Color(0xFFEFB8C8)
+
+val Purple40 = Color(0xFF6650a4)
+val PurpleGrey40 = Color(0xFF625b71)
+val Pink40 = Color(0xFF7D5260)
+```
+
+<Tabs>
+  <Tab title="Light Theme">
+    ```kotlin
+    private val LightColorScheme = lightColorScheme(
+        primary = Purple40,
+        secondary = PurpleGrey40,
+        tertiary = Pink40
+    )
+    ```
+    
+    **Colors:**
+    - Primary: `#6650a4` (Purple 40)
+    - Secondary: `#625b71` (Purple Grey 40)
+    - Tertiary: `#7D5260` (Pink 40)
+  </Tab>
+  
+  <Tab title="Dark Theme">
+    ```kotlin
+    private val DarkColorScheme = darkColorScheme(
+        primary = Purple80,
+        secondary = PurpleGrey80,
+        tertiary = Pink80
+    )
+    ```
+    
+    **Colors:**
+    - Primary: `#D0BCFF` (Purple 80)
+    - Secondary: `#CCC2DC` (Purple Grey 80)
+    - Tertiary: `#EFB8C8` (Pink 80)
+  </Tab>
+</Tabs>
+
+### Theme Composable
+
+The main theme composable supports dynamic colors on Android 12+:
+
+```kotlin
+@Composable
+fun MiTensionTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    dynamicColor: Boolean = true,
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+    
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography,
+        content = content
+    )
+}
+```
+
+**Features:**
+- Automatic dark/light theme detection
+- Dynamic color support (Android 12+)
+- Follows system theme preferences
+- Custom color schemes for older Android versions
+
+<Note>
+  Dynamic colors extract the color scheme from the user's wallpaper on Android 12+.
+</Note>
+
+## Screen Components
+
+### MedicionScreen
+
+The main measurement input screen:
+
+```kotlin
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MedicionScreen(onNavigateToCalendario: () -> Unit) {
+    val context = LocalContext.current
+    val medicionDao = remember { AppDatabase.getDatabase(context).medicionDao() }
+    val repository = remember { MedicionRepository(medicionDao) }
+    val factory = remember { MedicionViewModelFactory(repository, errorViewModel) }
+    val viewModel: MedicionViewModel = viewModel(factory = factory)
+    
+    val uiState by viewModel.uiState
+    var mostrarPopupSistolica by remember { mutableStateOf(false) }
+    var mostrarPopupDiastolica by remember { mutableStateOf(false) }
+    
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(tituloCompleto) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.primary
+                )
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            TensionDisplay(
+                label = stringResource(id = R.string.tension_alta_label),
+                valor = uiState.sistolica,
+                onClick = { mostrarPopupSistolica = true }
+            )
+            
+            TensionDisplay(
+                label = stringResource(id = R.string.tension_baja_label),
+                valor = uiState.diastolica,
+                onClick = { mostrarPopupDiastolica = true }
+            )
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Button(
+                    onClick = { viewModel.guardarMedicion(...) },
+                    modifier = Modifier.weight(3f).height(60.dp)
+                ) {
+                    Text(stringResource(id = R.string.guardar))
+                }
+                Button(
+                    onClick = { onNavigateToCalendario() },
+                    modifier = Modifier.weight(3f).height(60.dp)
+                ) {
+                    Text(stringResource(id = R.string.ver_calendario))
+                }
+            }
+        }
+    }
+}
+```
+
+**Key Elements:**
+
+<Steps>
+  <Step title="Scaffold with TopAppBar">
+    Material 3 Scaffold provides consistent layout structure with app bar
+  </Step>
+  
+  <Step title="Column Layout">
+    Vertical arrangement with centered alignment and 24dp spacing
+  </Step>
+  
+  <Step title="TensionDisplay Components">
+    Custom composables for displaying and editing blood pressure values
+  </Step>
+  
+  <Step title="Button Row">
+    Two equally-weighted buttons for saving and navigation
+  </Step>
+</Steps>
+
+### TensionDisplay Component
+
+Reusable component for displaying blood pressure values:
+
+```kotlin
+@Composable
+fun TensionDisplay(label: String, valor: String, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.7f)
+                .height(120.dp)
+                .background(
+                    MaterialTheme.colorScheme.surfaceVariant, 
+                    MaterialTheme.shapes.large
+                )
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (valor.isEmpty()) 
+                    stringResource(id = R.string.pulsa_para_anadir) 
+                else valor,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = if (valor.isEmpty()) 
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) 
+                else MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+```
+
+**Component Features:**
+
+<CardGroup cols={2}>
+  <Card title="Layout" icon="table-cells">
+    - Column with centered alignment
+    - Label text with headlineSmall style
+    - 8dp spacing between label and value box
+  </Card>
+  <Card title="Value Box" icon="square">
+    - 70% screen width
+    - 120dp fixed height
+    - Rounded corners (large shape)
+    - Surface variant background
+  </Card>
+  <Card title="Interaction" icon="hand-pointer">
+    - Clickable to open input dialog
+    - Visual feedback on tap
+    - Placeholder text when empty
+  </Card>
+  <Card title="Styling" icon="paintbrush">
+    - Bold headline medium typography
+    - Primary color for values
+    - Muted color (60% alpha) for placeholder
+  </Card>
+</CardGroup>
+
+### TensionInputDialog Component
+
+Modal dialog for numeric input:
+
+```kotlin
+@Composable
+fun TensionInputDialog(
+    titulo: String,
+    valorInicial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var text by remember {
+        mutableStateOf(
+            TextFieldValue(
+                text = valorInicial,
+                selection = TextRange(valorInicial.length)
+            )
+        )
+    }
+    val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
+    
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(titulo, style = MaterialTheme.typography.headlineSmall)
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { newValue ->
+                        if (newValue.text.length <= 3 && newValue.text.all { it.isDigit() }) {
+                            text = newValue
+                        }
+                    },
+                    modifier = Modifier.focusRequester(focusRequester),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            onConfirm(text.text)
+                            focusManager.clearFocus()
+                        }
+                    ),
+                    singleLine = true,
+                    textStyle = LocalTextStyle.current.copy(textAlign = TextAlign.Center)
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = {
+                        onConfirm(text.text)
+                        focusManager.clearFocus()
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                ) {
+                    Text(stringResource(id = R.string.confirmar))
+                }
+            }
+        }
+    }
+    
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
+}
+```
+
+**Dialog Features:**
+
+<Tabs>
+  <Tab title="Input Validation">
+    - Maximum 3 digits allowed
+    - Numeric input only (filters non-digits)
+    - Center-aligned text
+    - Auto-selects all text on open
+  </Tab>
+  
+  <Tab title="Keyboard Handling">
+    - Numeric keyboard type
+    - "Done" IME action
+    - Confirms on keyboard "Done" button
+    - Auto-focuses on dialog open
+  </Tab>
+  
+  <Tab title="Material Design">
+    - Card container with rounded corners
+    - 24dp padding
+    - Full-width button at bottom
+    - Consistent spacing (16dp/24dp)
+  </Tab>
+</Tabs>
+
+<Note>
+  `LaunchedEffect(Unit)` ensures the text field receives focus when the dialog opens.
+</Note>
+
+## Material 3 Components
+
+### Scaffold
+
+Provides consistent layout structure:
+
+```kotlin
+Scaffold(
+    topBar = { TopAppBar(...) },
+    floatingActionButton = { FloatingActionButton(...) },
+    content = { paddingValues ->
+        // Content here
+    }
+)
+```
+
+**Benefits:**
+- Automatic padding for system bars
+- Consistent app bar positioning
+- Built-in FAB support
+- Material motion and elevation
+
+### TopAppBar
+
+```kotlin
+TopAppBar(
+    title = { Text("Medición - Mañana 1/3") },
+    colors = TopAppBarDefaults.topAppBarColors(
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
+        titleContentColor = MaterialTheme.colorScheme.primary
+    )
+)
+```
+
+**Styling:**
+- Primary container background
+- Primary color text
+- Material 3 elevation
+- Supports navigation icons and actions
+
+### Buttons
+
+```kotlin
+Button(
+    onClick = { /* Action */ },
+    modifier = Modifier
+        .weight(3f)
+        .height(60.dp)
+) {
+    Text(
+        "Guardar",
+        style = MaterialTheme.typography.bodyLarge
+    )
+}
+```
+
+**Button Variants:**
+
+<CardGroup cols={3}>
+  <Card title="Filled Button" icon="rectangle">
+    Primary action button with solid background
+  </Card>
+  <Card title="Outlined Button" icon="square-dashed">
+    Secondary action with border outline
+  </Card>
+  <Card title="Text Button" icon="text">
+    Tertiary action with no background
+  </Card>
+</CardGroup>
+
+### OutlinedTextField
+
+```kotlin
+OutlinedTextField(
+    value = text,
+    onValueChange = { newValue -> text = newValue },
+    keyboardOptions = KeyboardOptions(
+        keyboardType = KeyboardType.Number,
+        imeAction = ImeAction.Done
+    ),
+    singleLine = true
+)
+```
+
+**Features:**
+- Material 3 outline style
+- Custom keyboard types
+- IME action support
+- Label and placeholder support
+- Error state handling
+
+## Typography
+
+Material 3 provides a rich typography scale:
+
+<Tabs>
+  <Tab title="Headlines">
+    ```kotlin
+    Text(
+        text = "Tensión Alta",
+        style = MaterialTheme.typography.headlineSmall
+    )
+    ```
+    
+    **Scale:**
+    - `headlineLarge` - 32sp
+    - `headlineMedium` - 28sp
+    - `headlineSmall` - 24sp
+  </Tab>
+  
+  <Tab title="Body Text">
+    ```kotlin
+    Text(
+        text = "Descripción",
+        style = MaterialTheme.typography.bodyLarge
+    )
+    ```
+    
+    **Scale:**
+    - `bodyLarge` - 16sp
+    - `bodyMedium` - 14sp
+    - `bodySmall` - 12sp
+  </Tab>
+  
+  <Tab title="Labels">
+    ```kotlin
+    Text(
+        text = "ETIQUETA",
+        style = MaterialTheme.typography.labelMedium
+    )
+    ```
+    
+    **Scale:**
+    - `labelLarge` - 14sp
+    - `labelMedium` - 12sp
+    - `labelSmall` - 11sp
+  </Tab>
+</Tabs>
+
+## Layout Patterns
+
+### Column with Spacing
+
+```kotlin
+Column(
+    modifier = Modifier
+        .fillMaxSize()
+        .padding(16.dp),
+    horizontalAlignment = Alignment.CenterHorizontally,
+    verticalArrangement = Arrangement.spacedBy(24.dp)
+) {
+    // Children spaced 24dp apart
+}
+```
+
+### Row with Weights
+
+```kotlin
+Row(
+    modifier = Modifier.fillMaxWidth(),
+    horizontalArrangement = Arrangement.spacedBy(16.dp)
+) {
+    Button(
+        modifier = Modifier.weight(1f),
+        onClick = { /* ... */ }
+    ) { Text("Button 1") }
+    
+    Button(
+        modifier = Modifier.weight(1f),
+        onClick = { /* ... */ }
+    ) { Text("Button 2") }
+}
+```
+
+### Box with Alignment
+
+```kotlin
+Box(
+    modifier = Modifier
+        .fillMaxWidth()
+        .height(120.dp),
+    contentAlignment = Alignment.Center
+) {
+    Text("Centered Content")
+}
+```
+
+## State Management
+
+### Remember and MutableState
+
+```kotlin
+var mostrarPopup by remember { mutableStateOf(false) }
+
+if (mostrarPopup) {
+    TensionInputDialog(
+        onDismiss = { mostrarPopup = false },
+        onConfirm = { valor ->
+            viewModel.onSistolicaChanged(valor)
+            mostrarPopup = false
+        }
+    )
+}
+```
+
+### Collecting Flow
+
+```kotlin
+val uiState by viewModel.uiState
+
+LaunchedEffect(key1 = true) {
+    viewModel.evento.collectLatest { evento ->
+        when (evento) {
+            is MedicionViewModel.UiEvento.MostrarMensaje -> {
+                Toast.makeText(context, evento.mensaje, Toast.LENGTH_LONG).show()
+            }
+            is MedicionViewModel.UiEvento.GuardadoConExito -> {
+                Toast.makeText(context, evento.mensaje, Toast.LENGTH_SHORT).show()
+                viewModel.onGuardadoExitoso()
+            }
+        }
+    }
+}
+```
+
+<Note>
+  Use `collectAsState()` for UI state and `collectLatest` in `LaunchedEffect` for one-time events.
+</Note>
+
+## Modifiers
+
+Common modifier patterns in MiTensión:
+
+<CardGroup cols={2}>
+  <Card title="Size" icon="arrows-maximize">
+    ```kotlin
+    Modifier
+        .fillMaxWidth()
+        .fillMaxHeight()
+        .fillMaxSize()
+        .size(48.dp)
+        .width(200.dp)
+        .height(60.dp)
+    ```
+  </Card>
+  <Card title="Padding" icon="square-dashed">
+    ```kotlin
+    Modifier
+        .padding(16.dp)
+        .padding(horizontal = 24.dp)
+        .padding(vertical = 16.dp)
+        .padding(
+            start = 16.dp,
+            top = 8.dp
+        )
+    ```
+  </Card>
+  <Card title="Background" icon="fill">
+    ```kotlin
+    Modifier
+        .background(
+            MaterialTheme.colorScheme.surface,
+            MaterialTheme.shapes.large
+        )
+        .background(Color.Red)
+    ```
+  </Card>
+  <Card title="Interaction" icon="hand-pointer">
+    ```kotlin
+    Modifier
+        .clickable { /* Action */ }
+        .focusRequester(focusRequester)
+        .focusable()
+    ```
+  </Card>
+</CardGroup>
+
+## Accessibility
+
+### Content Descriptions
+
+```kotlin
+Icon(
+    imageVector = Icons.Default.Add,
+    contentDescription = stringResource(id = R.string.add_measurement)
+)
+```
+
+### Semantic Properties
+
+```kotlin
+Modifier.semantics {
+    contentDescription = "Systolic blood pressure: 120"
+    role = Role.Button
+}
+```
+
+### Focus Management
+
+```kotlin
+val focusRequester = remember { FocusRequester() }
+
+OutlinedTextField(
+    modifier = Modifier.focusRequester(focusRequester),
+    // ...
+)
+
+LaunchedEffect(Unit) {
+    focusRequester.requestFocus()
+}
+```
+
+## Animation
+
+### AnimatedVisibility
+
+```kotlin
+AnimatedVisibility(visible = isVisible) {
+    Text("This text animates in and out")
+}
+```
+
+### Animated Content
+
+```kotlin
+AnimatedContent(targetState = currentScreen) { screen ->
+    when (screen) {
+        Screen.Medicion -> MedicionScreen()
+        Screen.Calendario -> CalendarioScreen()
+    }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="State Hoisting" icon="arrow-up">
+    - Keep composables stateless when possible
+    - Hoist state to lowest common ancestor
+    - Pass state down, events up
+    - Use ViewModels for business logic
+  </Card>
+  <Card title="Recomposition" icon="arrows-rotate">
+    - Use `remember` for expensive operations
+    - Avoid creating new objects in composition
+    - Use `key` for stable identity
+    - Profile with Layout Inspector
+  </Card>
+  <Card title="Resources" icon="language">
+    - Use `stringResource()` for all text
+    - Support multiple languages
+    - Use `dimensionResource()` for sizes
+    - Leverage string formatting
+  </Card>
+  <Card title="Theming" icon="palette">
+    - Always use `MaterialTheme.colorScheme`
+    - Respect system dark mode
+    - Use semantic color names
+    - Test in light and dark themes
+  </Card>
+</CardGroup>
+
+## Testing Composables
+
+### UI Tests
+
+```kotlin
+@Test
+fun testTensionDisplay_showsValue() {
+    composeTestRule.setContent {
+        MiTensionTheme {
+            TensionDisplay(
+                label = "Sistólica",
+                valor = "120",
+                onClick = {}
+            )
+        }
+    }
+    
+    composeTestRule
+        .onNodeWithText("120")
+        .assertIsDisplayed()
+}
+
+@Test
+fun testTensionDisplay_clickable() {
+    var clicked = false
+    
+    composeTestRule.setContent {
+        TensionDisplay(
+            label = "Sistólica",
+            valor = "120",
+            onClick = { clicked = true }
+        )
+    }
+    
+    composeTestRule
+        .onNodeWithText("120")
+        .performClick()
+    
+    assertTrue(clicked)
+}
+```
+
+## Performance Tips
+
+<Steps>
+  <Step title="Use derivedStateOf">
+    For computed values that depend on other state:
+    ```kotlin
+    val isValid by remember {
+        derivedStateOf {
+            sistolica.isNotBlank() && diastolica.isNotBlank()
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Avoid Unnecessary Recomposition">
+    Use stable types and avoid lambdas with captures:
+    ```kotlin
+    @Stable
+    data class ButtonState(val enabled: Boolean, val text: String)
+    ```
+  </Step>
+  
+  <Step title="Use LazyColumn for Lists">
+    Instead of Column with many items:
+    ```kotlin
+    LazyColumn {
+        items(mediciones) { medicion ->
+            MedicionItem(medicion)
+        }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/development/architecture">
+    Learn about the MVVM architecture pattern
+  </Card>
+  <Card title="Data Model" icon="database" href="/development/data-model">
+    Explore the Room database schema
+  </Card>
+</CardGroup>

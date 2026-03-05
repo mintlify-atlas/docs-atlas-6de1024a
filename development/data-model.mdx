@@ -1,0 +1,493 @@
+---
+title: "Data Model"
+description: "Room database schema, entities, and data access objects in MiTensión"
+---
+
+## Overview
+
+MiTensión uses **Room Persistence Library** for local data storage. The database stores blood pressure measurements organized by time periods (morning, afternoon, night).
+
+<CardGroup cols={3}>
+  <Card title="Database" icon="database">
+    SQLite database with Room abstraction
+  </Card>
+  <Card title="Entities" icon="table">
+    Medicion, ResumenDiario data classes
+  </Card>
+  <Card title="DAOs" icon="code">
+    Type-safe database access methods
+  </Card>
+</CardGroup>
+
+## Database Configuration
+
+### AppDatabase
+
+The main database class provides access to DAOs and manages the database instance:
+
+```kotlin
+@Database(entities = [Medicion::class], version = 1, exportSchema = false)
+abstract class AppDatabase : RoomDatabase() {
+    
+    abstract fun medicionDao(): MedicionDao
+    
+    companion object {
+        @Volatile
+        private var INSTANCE: AppDatabase? = null
+        
+        fun getDatabase(context: Context): AppDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    AppDatabase::class.java,
+                    "mitension_database"
+                ).build()
+                INSTANCE = instance
+                instance
+            }
+        }
+    }
+}
+```
+
+**Key Points:**
+- Database name: `mitension_database`
+- Version: 1 (no migrations yet)
+- Singleton pattern ensures single database instance
+- `@Volatile` ensures thread-safety
+- `synchronized` prevents race conditions during initialization
+
+<Note>
+  The database uses the application context to prevent memory leaks.
+</Note>
+
+## Entity: Medicion
+
+The `Medicion` entity represents a single blood pressure measurement:
+
+```kotlin
+@Entity
+data class Medicion(
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+    val sistolica: Int,
+    val diastolica: Int,
+    val timestamp: Long = System.currentTimeMillis()
+)
+```
+
+### Field Descriptions
+
+<ParamField path="id" type="Int" required>
+  Auto-generated primary key. Room automatically assigns unique IDs.
+</ParamField>
+
+<ParamField path="sistolica" type="Int" required>
+  Systolic blood pressure value (top number). Example: 120 in "120/80"
+</ParamField>
+
+<ParamField path="diastolica" type="Int" required>
+  Diastolic blood pressure value (bottom number). Example: 80 in "120/80"
+</ParamField>
+
+<ParamField path="timestamp" type="Long" default="System.currentTimeMillis()">
+  Unix timestamp in milliseconds when the measurement was taken
+</ParamField>
+
+### Table Schema
+
+Room generates the following SQLite table:
+
+```sql
+CREATE TABLE Medicion (
+    id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+    sistolica INTEGER NOT NULL,
+    diastolica INTEGER NOT NULL,
+    timestamp INTEGER NOT NULL
+)
+```
+
+<Note>
+  Room automatically converts Kotlin data types to appropriate SQLite types.
+</Note>
+
+## Entity: ResumenDiario
+
+The `ResumenDiario` data class represents daily averages for each time period:
+
+```kotlin
+data class ResumenDiario(
+    val dia: Int,
+    val mediaSistolicaManana: Double?,
+    val mediaDiastolicaManana: Double?,
+    val mediaSistolicaTarde: Double?,
+    val mediaDiastolicaTarde: Double?,
+    val mediaSistolicaNoche: Double?,
+    val mediaDiastolicaNoche: Double?
+)
+```
+
+### Field Descriptions
+
+<ResponseField name="dia" type="Int" required>
+  Day of the month (1-31)
+</ResponseField>
+
+<ResponseField name="mediaSistolicaManana" type="Double?">
+  Average systolic pressure for morning period (00:01 - 12:30). Null if no measurements.
+</ResponseField>
+
+<ResponseField name="mediaDiastolicaManana" type="Double?">
+  Average diastolic pressure for morning period. Null if no measurements.
+</ResponseField>
+
+<ResponseField name="mediaSistolicaTarde" type="Double?">
+  Average systolic pressure for afternoon period (12:31 - 19:00). Null if no measurements.
+</ResponseField>
+
+<ResponseField name="mediaDiastolicaTarde" type="Double?">
+  Average diastolic pressure for afternoon period. Null if no measurements.
+</ResponseField>
+
+<ResponseField name="mediaSistolicaNoche" type="Double?">
+  Average systolic pressure for night period (19:01 - 00:00). Null if no measurements.
+</ResponseField>
+
+<ResponseField name="mediaDiastolicaNoche" type="Double?">
+  Average diastolic pressure for night period. Null if no measurements.
+</ResponseField>
+
+<Note>
+  This class is not an entity - it's a query result object used with custom SQL queries.
+</Note>
+
+## Data Access Object (DAO)
+
+The `MedicionDao` interface defines all database operations:
+
+```kotlin
+@Dao
+interface MedicionDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertar(medicion: Medicion)
+    
+    @Query("SELECT * FROM Medicion WHERE timestamp >= :inicioDelDia AND timestamp < :finDelDia ORDER BY timestamp DESC")
+    fun obtenerMedicionesPorDia(inicioDelDia: Long, finDelDia: Long): Flow<List<Medicion>>
+    
+    @Query("SELECT COUNT(id) FROM Medicion WHERE timestamp >= :inicio AND timestamp < :fin")
+    suspend fun contarMedicionesEnRango(inicio: Long, fin: Long): Int
+    
+    @Query("""...""")
+    fun obtenerResumenMensual(inicioDelMes: Long, finDelMes: Long): Flow<List<ResumenDiario>>
+}
+```
+
+### Insert Operation
+
+```kotlin
+@Insert(onConflict = OnConflictStrategy.REPLACE)
+suspend fun insertar(medicion: Medicion)
+```
+
+**Features:**
+- `suspend` function for coroutine support
+- `REPLACE` strategy handles conflicts by overwriting existing records
+- Room automatically generates SQL INSERT statement
+
+**Usage:**
+```kotlin
+val medicion = Medicion(sistolica = 120, diastolica = 80)
+medicionDao.insertar(medicion)
+```
+
+### Query by Date Range
+
+```kotlin
+@Query("SELECT * FROM Medicion WHERE timestamp >= :inicioDelDia AND timestamp < :finDelDia ORDER BY timestamp DESC")
+fun obtenerMedicionesPorDia(inicioDelDia: Long, finDelDia: Long): Flow<List<Medicion>>
+```
+
+**Features:**
+- Returns `Flow` for reactive updates
+- Filters by timestamp range
+- Orders results by most recent first
+
+**Usage:**
+```kotlin
+val (inicio, fin) = obtenerRangoTimestamps(PeriodoDelDia.MAÑANA)
+medicionDao.obtenerMedicionesPorDia(inicio, fin)
+    .collect { mediciones ->
+        // UI updates automatically
+    }
+```
+
+### Count Measurements
+
+```kotlin
+@Query("SELECT COUNT(id) FROM Medicion WHERE timestamp >= :inicio AND timestamp < :fin")
+suspend fun contarMedicionesEnRango(inicio: Long, fin: Long): Int
+```
+
+**Use Case:** Determine which measurement number (1, 2, or 3) to display in the UI.
+
+**Example:**
+```kotlin
+val count = medicionDao.contarMedicionesEnRango(inicio, fin)
+val numeroMedicion = count + 1 // If 0 measurements, show "Medición 1"
+```
+
+### Monthly Summary Query
+
+This advanced query uses a **Common Table Expression (CTE)** to calculate daily averages grouped by time period:
+
+```kotlin
+@Query("""
+    WITH MedicionesConPeriodo AS (
+        SELECT
+            *,
+            CASE
+                WHEN (CAST(strftime('%H', timestamp / 1000, 'unixepoch') AS INTEGER) * 60 + CAST(strftime('%M', timestamp / 1000, 'unixepoch') AS INTEGER)) BETWEEN 1 AND 750 THEN 'MAÑANA'
+                WHEN (CAST(strftime('%H', timestamp / 1000, 'unixepoch') AS INTEGER) * 60 + CAST(strftime('%M', timestamp / 1000, 'unixepoch') AS INTEGER)) BETWEEN 751 AND 1140 THEN 'TARDE'
+                ELSE 'NOCHE'
+            END AS periodo
+        FROM Medicion
+        WHERE timestamp >= :inicioDelMes AND timestamp < :finDelMes
+    )
+    SELECT
+        CAST(strftime('%d', timestamp / 1000, 'unixepoch') AS INTEGER) AS dia,
+        AVG(CASE WHEN periodo = 'MAÑANA' THEN sistolica ELSE NULL END) as mediaSistolicaManana,
+        AVG(CASE WHEN periodo = 'MAÑANA' THEN diastolica ELSE NULL END) as mediaDiastolicaManana,
+        AVG(CASE WHEN periodo = 'TARDE' THEN sistolica ELSE NULL END) as mediaSistolicaTarde,
+        AVG(CASE WHEN periodo = 'TARDE' THEN diastolica ELSE NULL END) as mediaDiastolicaTarde,
+        AVG(CASE WHEN periodo = 'NOCHE' THEN sistolica ELSE NULL END) as mediaSistolicaNoche,
+        AVG(CASE WHEN periodo = 'NOCHE' THEN diastolica ELSE NULL END) as mediaDiastolicaNoche
+    FROM MedicionesConPeriodo
+    GROUP BY dia
+""")
+fun obtenerResumenMensual(inicioDelMes: Long, finDelMes: Long): Flow<List<ResumenDiario>>
+```
+
+**Query Breakdown:**
+
+<Steps>
+  <Step title="CTE: Classify Time Period">
+    The CTE adds a computed `periodo` column to each measurement:
+    - Converts timestamp to hour and minute
+    - Calculates total minutes since midnight
+    - Classifies as MAÑANA (1-750), TARDE (751-1140), or NOCHE
+  </Step>
+  
+  <Step title="Calculate Daily Averages">
+    Groups measurements by day and calculates averages:
+    - Uses `CASE` expressions to filter by period
+    - `AVG()` function computes mean values
+    - Returns `NULL` if no measurements for a period
+  </Step>
+  
+  <Step title="Return Flow">
+    Room wraps results in `Flow<List<ResumenDiario>>` for reactive UI updates
+  </Step>
+</Steps>
+
+<Note>
+  SQLite's `strftime()` function requires dividing timestamp by 1000 to convert milliseconds to seconds.
+</Note>
+
+## Time Period Definition
+
+MiTensión divides each day into three periods:
+
+<Tabs>
+  <Tab title="Morning (Mañana)">
+    - **Time Range:** 00:01 - 12:30
+    - **Minutes:** 1 - 750
+    - **Purpose:** Captures morning blood pressure readings
+    - **Typical use:** Measurements taken after waking up
+  </Tab>
+  
+  <Tab title="Afternoon (Tarde)">
+    - **Time Range:** 12:31 - 19:00
+    - **Minutes:** 751 - 1140
+    - **Purpose:** Midday and afternoon measurements
+    - **Typical use:** Measurements during work hours
+  </Tab>
+  
+  <Tab title="Night (Noche)">
+    - **Time Range:** 19:01 - 00:00
+    - **Minutes:** 1141+ or 0
+    - **Purpose:** Evening blood pressure tracking
+    - **Typical use:** Measurements before bedtime
+  </Tab>
+</Tabs>
+
+## Data Validation
+
+### Input Constraints
+
+The app enforces validation at multiple levels:
+
+<CardGroup cols={2}>
+  <Card title="UI Level" icon="mobile">
+    - Max 3 digits for blood pressure values
+    - Numeric input only
+    - Required fields cannot be empty
+  </Card>
+  <Card title="ViewModel Level" icon="shield-check">
+    - Maximum 3 measurements per period
+    - Validates numeric conversion
+    - Checks timestamp validity
+  </Card>
+</CardGroup>
+
+```kotlin
+// UI validation in MedicionScreen.kt
+if (newValue.text.length <= 3 && newValue.text.all { it.isDigit() }) {
+    text = newValue
+}
+
+// ViewModel validation
+if (_uiState.value.sistolica.isBlank() || _uiState.value.diastolica.isBlank()) {
+    _evento.emit(UiEvento.MostrarMensaje(mensajeErrorCampos))
+    return@launch
+}
+
+if (_uiState.value.numeroMedicion > 3) {
+    val tiempoRestante = obtenerTiempoRestanteParaSiguientePeriodo(_uiState.value.periodo)
+    val mensajeFormateado = String.format(mensajeErrorPeriodoLleno, tiempoRestante)
+    _evento.emit(UiEvento.MostrarMensaje(mensajeFormateado))
+    return@launch
+}
+```
+
+## Database Migration Strategy
+
+Currently at version 1, future migrations will follow this pattern:
+
+```kotlin
+val MIGRATION_1_2 = object : Migration(1, 2) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        // Example: Add new column
+        database.execSQL("ALTER TABLE Medicion ADD COLUMN notas TEXT")
+    }
+}
+
+Room.databaseBuilder(context, AppDatabase::class.java, "mitension_database")
+    .addMigrations(MIGRATION_1_2)
+    .build()
+```
+
+<Note>
+  Always test migrations thoroughly to prevent data loss.
+</Note>
+
+## Repository Layer
+
+The repository provides a clean API for database operations:
+
+```kotlin
+class MedicionRepository(private val medicionDao: MedicionDao) {
+    
+    suspend fun insertarMedicion(medicion: Medicion) {
+        medicionDao.insertar(medicion)
+    }
+    
+    suspend fun contarMedicionesEnRango(inicio: Long, fin: Long): Int {
+        return medicionDao.contarMedicionesEnRango(inicio, fin)
+    }
+    
+    fun obtenerMedicionesEnRango(inicio: Long, fin: Long): Flow<List<Medicion>> {
+        return medicionDao.obtenerMedicionesPorDia(inicio, fin)
+    }
+    
+    fun obtenerResumenMensual(inicioDelMes: Long, finDelMes: Long): Flow<List<ResumenDiario>> {
+        return medicionDao.obtenerResumenMensual(inicioDelMes, finDelMes)
+    }
+}
+```
+
+**Benefits:**
+- Abstracts Room implementation details
+- Makes testing easier with mock repositories
+- Provides single source of truth
+- Can combine multiple data sources in the future
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Entity Design" icon="table">
+    - Use meaningful column names
+    - Set appropriate default values
+    - Keep entities simple and focused
+    - Use nullable types when optional
+  </Card>
+  <Card title="DAO Queries" icon="code">
+    - Use suspend for one-shot operations
+    - Return Flow for observable data
+    - Write efficient SQL queries
+    - Add indexes for frequently queried columns
+  </Card>
+  <Card title="Threading" icon="bolt">
+    - Room handles threading automatically
+    - Use suspend functions with coroutines
+    - Never run queries on main thread
+    - Collect Flows in lifecycle-aware scope
+  </Card>
+  <Card title="Testing" icon="flask">
+    - Test DAOs with in-memory database
+    - Mock repository in ViewModel tests
+    - Verify query correctness
+    - Test migration scripts
+  </Card>
+</CardGroup>
+
+## Performance Considerations
+
+### Indexing
+
+For better query performance on timestamp-based queries:
+
+```kotlin
+@Entity(indices = [Index(value = ["timestamp"])])
+data class Medicion(...)
+```
+
+### Query Optimization
+
+<Tabs>
+  <Tab title="Efficient">
+    ```kotlin
+    // Use specific columns
+    @Query("SELECT id, sistolica FROM Medicion WHERE ...")
+    
+    // Use LIMIT for large datasets
+    @Query("SELECT * FROM Medicion ORDER BY timestamp DESC LIMIT 100")
+    
+    // Use Flow for automatic updates
+    fun getMediciones(): Flow<List<Medicion>>
+    ```
+  </Tab>
+  
+  <Tab title="Avoid">
+    ```kotlin
+    // Don't use SELECT * if you only need specific columns
+    @Query("SELECT * FROM Medicion") // Inefficient if table has many columns
+    
+    // Don't return all records at once
+    @Query("SELECT * FROM Medicion") // Could load thousands of records
+    
+    // Don't use LiveData if you need Flow
+    fun getMediciones(): LiveData<List<Medicion>> // Flow is preferred
+    ```
+  </Tab>
+</Tabs>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/development/architecture">
+    Learn about the MVVM architecture pattern
+  </Card>
+  <Card title="UI Components" icon="palette" href="/development/ui-components">
+    Explore Jetpack Compose UI components
+  </Card>
+</CardGroup>

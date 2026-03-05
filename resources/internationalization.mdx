@@ -1,0 +1,510 @@
+---
+title: Internationalization (i18n)
+description: Multi-language support implementation in MiTensión
+icon: globe
+---
+
+MiTensión supports multiple languages to make blood pressure tracking accessible to users worldwide. The app currently includes Spanish (default), English, and Galician localizations.
+
+## Supported Languages
+
+<CardGroup cols={3}>
+  <Card title="Español (Spanish)" icon="es">
+    **Default Language**
+    
+    `res/values/strings.xml`
+    
+    App name: **MiTension**
+  </Card>
+  
+  <Card title="English" icon="gb">
+    **English Translation**
+    
+    `res/values-en/strings.xml`
+    
+    App name: **MyPressure**
+  </Card>
+  
+  <Card title="Galego (Galician)" icon="language">
+    **Galician Translation**
+    
+    `res/values-gl/strings.xml`
+    
+    App name: **A miña Tensión**
+  </Card>
+</CardGroup>
+
+## How It Works
+
+Android's resource system automatically selects the appropriate language based on the user's device settings. If a translation isn't available for the user's language, the app falls back to Spanish (default).
+
+<Note>
+  The app responds immediately to language changes without requiring a restart.
+</Note>
+
+## String Resources Structure
+
+All user-facing text is stored in XML resource files organized by category:
+
+### Resource Files Location
+
+```xml
+app/src/main/res/
+├── values/              # Spanish (default)
+│   └── strings.xml
+├── values-en/           # English
+│   └── strings.xml
+└── values-gl/           # Galician
+    └── strings.xml
+```
+
+## String Categories
+
+<AccordionGroup>
+  <Accordion title="App Basics" icon="mobile">
+    Core app identification strings:
+    
+    ```xml
+    <string name="app_name">MiTension</string>
+    ```
+    
+    **Translations:**
+    - **Spanish:** MiTension
+    - **English:** MyPressure
+    - **Galician:** A miña Tensión
+  </Accordion>
+  
+  <Accordion title="Time Periods" icon="clock">
+    Labels for the three daily measurement periods:
+    
+    ```xml
+    <string name="periodo_manana">Mañana</string>
+    <string name="periodo_tarde">Tarde</string>
+    <string name="periodo_noche">Noche</string>
+    ```
+    
+    **English translations:**
+    - Morning, Afternoon, Night
+    
+    **Galician translations:**
+    - Mañá, Tarde, Noite
+  </Accordion>
+  
+  <Accordion title="Measurement Labels" icon="heart-pulse">
+    Blood pressure measurement terminology:
+    
+    ```xml
+    <string name="tension_alta_label">La Alta (sistólica)</string>
+    <string name="tension_alta_label_corta">La Alta</string>
+    <string name="tension_baja_label">La Baja (diastólica)</string>
+    <string name="tension_baja_label_corta">La Baja</string>
+    <string name="media_label">Media</string>
+    ```
+    
+    The app uses both long and short versions for different UI contexts.
+  </Accordion>
+  
+  <Accordion title="Screen Titles" icon="window-maximize">
+    Dynamic titles with parameter placeholders:
+    
+    ```xml
+    <string name="titulo_medicion">%1$s - Medición %2$d/3</string>
+    <string name="detalle_dia_titulo">Detalles del día %1$d</string>
+    <string name="titulo_calendario">Calendario de Mi Tensión</string>
+    ```
+  </Accordion>
+  
+  <Accordion title="Action Buttons" icon="hand-pointer">
+    Interactive button labels:
+    
+    ```xml
+    <string name="guardar">Guardar</string>
+    <string name="confirmar">Confirmar</string>
+    <string name="ver_calendario">Ver Calendario</string>
+    <string name="volver_al_calendario">Volver al Calendario</string>
+    <string name="anadir_nuevo_registro">Añadir Nuevo Registro</string>
+    <string name="pulsa_para_anadir">Pulsa para añadir</string>
+    ```
+  </Accordion>
+  
+  <Accordion title="Calendar Navigation" icon="calendar">
+    Month navigation controls:
+    
+    ```xml
+    <string name="mes_anterior">Mes Anterior</string>
+    <string name="mes_siguiente">Mes Siguiente</string>
+    ```
+  </Accordion>
+  
+  <Accordion title="Messages and Feedback" icon="message">
+    User feedback messages:
+    
+    ```xml
+    <string name="error_campos_obligatorios">
+      Ambos campos, Alta y Baja, son obligatorios.
+    </string>
+    <string name="guardado_con_exito">
+      ¡Medición guardada con éxito!
+    </string>
+    <string name="error_periodo_lleno">
+      Ya has completado los 3 registros para este período. 
+      El siguiente período empieza en %s.
+    </string>
+    <string name="error_no_numerico">
+      Error: Valor numérico inválido.
+    </string>
+    ```
+  </Accordion>
+  
+  <Accordion title="Notifications" icon="bell">
+    Push notification content:
+    
+    ```xml
+    <string name="canal_notificaciones_nombre">
+      Recordatorios de Medición
+    </string>
+    <string name="canal_notificaciones_descripcion">
+      Notificaciones para recordar tomar la tensión.
+    </string>
+    <string name="notificacion_titulo">
+      ¡Es hora de registrar tu tensión!
+    </string>
+    <string name="notificacion_texto">
+      Aún te faltan %d mediciones para completar el período de la %s.
+    </string>
+    ```
+  </Accordion>
+  
+  <Accordion title="Blood Pressure Legend" icon="palette">
+    Color-coded blood pressure classification:
+    
+    ```xml
+    <string name="leyenda_titulo">Leyenda de Tensión</string>
+    <string name="leyenda_normal">Normal</string>
+    <string name="leyenda_elevada">Elevada</string>
+    <string name="leyenda_alta_1">Alta (Hipertensión 1)</string>
+    <string name="leyenda_alta_2">Alta (Hipertensión 2)</string>
+    <string name="leyenda_crisis">Crisis Hipertensiva</string>
+    <string name="leyenda_baja">Baja (Hipotensión)</string>
+    ```
+    
+    These classifications follow standard medical guidelines.
+  </Accordion>
+</AccordionGroup>
+
+## String Formatting
+
+MiTensión uses Android's string formatting for dynamic content:
+
+### Format Specifiers
+
+<CardGroup cols={2}>
+  <Card title="String Parameters" icon="font">
+    Use `%1$s`, `%2$s`, etc. for string values:
+    
+    ```xml
+    <string name="titulo_medicion">
+      %1$s - Medición %2$d/3
+    </string>
+    ```
+    
+    ```kotlin
+    getString(R.string.titulo_medicion, "Mañana", 2)
+    // Output: "Mañana - Medición 2/3"
+    ```
+  </Card>
+  
+  <Card title="Integer Parameters" icon="hashtag">
+    Use `%d` or `%1$d` for numbers:
+    
+    ```xml
+    <string name="notificacion_texto">
+      Aún te faltan %d mediciones para 
+      completar el período de la %s.
+    </string>
+    ```
+    
+    ```kotlin
+    getString(
+      R.string.notificacion_texto, 
+      2, 
+      "tarde"
+    )
+    ```
+  </Card>
+</CardGroup>
+
+## Adding New Languages
+
+To add support for a new language:
+
+<Steps>
+  <Step title="Create Resource Directory">
+    Create a new values directory with the language code:
+    
+    ```bash
+    mkdir app/src/main/res/values-fr  # For French
+    ```
+    
+    Common language codes:
+    - `values-fr` - French
+    - `values-de` - German
+    - `values-pt` - Portuguese
+    - `values-it` - Italian
+  </Step>
+  
+  <Step title="Copy String Template">
+    Copy the default `strings.xml` to the new directory:
+    
+    ```bash
+    cp app/src/main/res/values/strings.xml \
+       app/src/main/res/values-fr/strings.xml
+    ```
+  </Step>
+  
+  <Step title="Translate Strings">
+    Open the new `strings.xml` and translate all string values.
+    
+    <Warning>
+      Keep the XML structure and parameter placeholders (`%1$s`, `%d`) identical. Only translate the visible text.
+    </Warning>
+    
+    Example:
+    ```xml
+    <!-- Original (Spanish) -->
+    <string name="guardar">Guardar</string>
+    
+    <!-- French translation -->
+    <string name="guardar">Enregistrer</string>
+    ```
+  </Step>
+  
+  <Step title="Test Translations">
+    Test the app with the new language:
+    
+    1. Open device Settings → Language
+    2. Add and select the new language
+    3. Open MiTensión and verify all screens
+    4. Check for truncated text or layout issues
+  </Step>
+</Steps>
+
+## Translation Guidelines
+
+<Note>
+  Follow these best practices when adding or updating translations.
+</Note>
+
+### Do's and Don'ts
+
+<AccordionGroup>
+  <Accordion title="Maintain Consistency" icon="check">
+    ✅ Use consistent terminology throughout the app
+    
+    ✅ Keep the same tone and formality level
+    
+    ✅ Preserve parameter placeholders exactly
+    
+    ❌ Don't translate technical terms unnecessarily
+    
+    ❌ Don't change parameter order without updating code
+  </Accordion>
+  
+  <Accordion title="Consider Text Length" icon="ruler">
+    Some languages use longer words than others. Consider:
+    
+    - Button labels should be concise
+    - Allow for 30-40% text expansion
+    - Test UI layouts with different languages
+    - Use short versions where space is limited
+    
+    Example:
+    ```xml
+    <string name="tension_alta_label">
+      La Alta (sistólica)
+    </string>
+    <string name="tension_alta_label_corta">
+      La Alta
+    </string>
+    ```
+  </Accordion>
+  
+  <Accordion title="Handle Plurals" icon="list-ol">
+    For quantities that may be singular or plural, use plural resources:
+    
+    ```xml
+    <plurals name="measurement_count">
+      <item quantity="one">%d medición</item>
+      <item quantity="other">%d mediciones</item>
+    </plurals>
+    ```
+  </Accordion>
+  
+  <Accordion title="Preserve Special Characters" icon="code">
+    XML special characters must be escaped:
+    
+    - `&amp;` for &amp;
+    - `&lt;` for &lt;
+    - `&gt;` for &gt;
+    - `&quot;` for "
+    - `&apos;` or `\'` for '
+    
+    Example:
+    ```xml
+    <string name="notificacion_titulo">
+      It\'s time to record your blood pressure!
+    </string>
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Accessing Strings in Code
+
+### In Composables
+
+Use `stringResource()` in Jetpack Compose:
+
+```kotlin
+import androidx.compose.ui.res.stringResource
+
+@Composable
+fun MeasurementScreen() {
+    val title = stringResource(R.string.titulo_medicion, "Mañana", 1)
+    
+    Text(text = title)
+}
+```
+
+### In ViewModels
+
+<Warning>
+  ViewModels should NOT access string resources directly. Pass formatted strings from the UI layer.
+</Warning>
+
+**Correct approach:**
+
+```kotlin
+// In Composable
+val errorMessage = stringResource(R.string.error_campos_obligatorios)
+LaunchedEffect(viewModel.error) {
+    if (viewModel.error) {
+        showSnackbar(errorMessage)
+    }
+}
+
+// In ViewModel
+fun validateFields(alta: Int?, baja: Int?) {
+    if (alta == null || baja == null) {
+        _error.value = true  // Emit error state
+    }
+}
+```
+
+### In Background Workers
+
+Workers have access to Context:
+
+```kotlin
+class ReminderWorker(context: Context, params: WorkerParameters) 
+    : Worker(context, params) {
+    
+    override fun doWork(): Result {
+        val title = applicationContext.getString(
+            R.string.notificacion_titulo
+        )
+        val text = applicationContext.getString(
+            R.string.notificacion_texto,
+            2,
+            "tarde"
+        )
+        
+        showNotification(title, text)
+        return Result.success()
+    }
+}
+```
+
+## Testing Translations
+
+### Manual Testing
+
+<Steps>
+  <Step title="Change Device Language">
+    Settings → System → Languages & input → Languages
+  </Step>
+  
+  <Step title="Verify All Screens">
+    Navigate through every screen and check:
+    - All text is translated
+    - No truncated text
+    - Layouts adjust properly
+    - Dialogs display correctly
+  </Step>
+  
+  <Step title="Test Edge Cases">
+    - Very long text strings
+    - Special characters
+    - Notifications
+    - Error messages
+  </Step>
+</Steps>
+
+### Automated Testing
+
+While automated translation testing is limited, you can verify resource completeness:
+
+```kotlin
+@Test
+fun `all languages have same string keys`() {
+    val defaultStrings = getStringKeys("values")
+    val englishStrings = getStringKeys("values-en")
+    val galicianStrings = getStringKeys("values-gl")
+    
+    assertEquals(defaultStrings, englishStrings)
+    assertEquals(defaultStrings, galicianStrings)
+}
+```
+
+## Current Translation Coverage
+
+<CardGroup cols={3}>
+  <Card title="Spanish" icon="check">
+    **100% Complete**
+    
+    52 strings
+  </Card>
+  
+  <Card title="English" icon="check">
+    **100% Complete**
+    
+    52 strings
+  </Card>
+  
+  <Card title="Galician" icon="check">
+    **100% Complete**
+    
+    52 strings
+  </Card>
+</CardGroup>
+
+<Note>
+  All supported languages have complete translation coverage with no missing strings.
+</Note>
+
+## Best Practices Summary
+
+1. **Always translate all strings** - Incomplete translations break the user experience
+2. **Test with actual devices** - Emulators may not catch all layout issues
+3. **Keep strings.xml organized** - Use comments to group related strings
+4. **Avoid hardcoded text** - Never put user-visible text directly in code
+5. **Consider RTL languages** - If adding Arabic or Hebrew, test right-to-left layouts
+6. **Update all languages together** - When adding new features, translate immediately
+7. **Review translations** - Have native speakers review translations when possible
+
+## Need Help?
+
+For questions about internationalization:
+
+- Check the [Contributing Guidelines](/resources/contributing)
+- Review Android's [Localization documentation](https://developer.android.com/guide/topics/resources/localization)
+- Open an issue on GitHub for translation help

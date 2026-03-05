@@ -1,0 +1,470 @@
+---
+title: Calendar Heatmap View
+description: Visualize blood pressure data with an interactive calendar heatmap showing daily patterns
+---
+
+## Overview
+
+The calendar view provides a month-by-month visualization of blood pressure measurements using a color-coded heatmap. Each day displays three colored bars representing morning, afternoon, and evening measurements, making it easy to identify trends and patterns.
+
+## Calendar Interface
+
+### Monthly Navigation
+
+The calendar header allows navigation between months:
+
+```kotlin
+@Composable
+fun CalendarioHeader(
+    anioMes: YearMonth,
+    onMesAnterior: () -> Unit,
+    onMesSiguiente: () -> Unit
+) {
+    val formatter = remember { 
+        DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()) 
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        IconButton(onClick = onMesAnterior) {
+            Icon(
+                Icons.Default.ArrowBack,
+                contentDescription = stringResource(id = R.string.mes_anterior)
+            )
+        }
+        Text(
+            text = anioMes.format(formatter).replaceFirstChar { it.uppercase() },
+            style = MaterialTheme.typography.headlineMedium
+        )
+        IconButton(onClick = onMesSiguiente) {
+            Icon(
+                Icons.Default.ArrowForward,
+                contentDescription = stringResource(id = R.string.mes_siguiente)
+            )
+        }
+    }
+}
+```
+
+Source: `CalendarioScreen.kt:135-165`
+
+### Calendar Grid Structure
+
+The calendar displays a traditional 7-column grid with day-of-week headers:
+
+```kotlin
+@Composable
+fun CalendarioGrid(
+    anioMes: YearMonth,
+    resumenMensual: Map<Int, ResumenDiario>,
+    onDiaClick: (Int) -> Unit
+) {
+    val diasEnMes = anioMes.lengthOfMonth()
+    val primerDiaDelMes = anioMes.atDay(1).dayOfWeek
+    val offset = primerDiaDelMes.value
+
+    Column {
+        // Day of week headers
+        Row {
+            for (i in 0..6) {
+                val dia = DayOfWeek.values()[(i + 6) % 7] // M T W T F S S
+                Text(
+                    text = dia.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Calendar days (6 weeks)
+        for (semana in 0..5) {
+            Row {
+                for (diaSemana in 1..7) {
+                    val diaMes = (semana * 7 + diaSemana) - offset
+                    if (diaMes in 1..diasEnMes) {
+                        CeldaDiaCalendario(
+                            dia = diaMes,
+                            resumen = resumenMensual[diaMes],
+                            onClick = { onDiaClick(diaMes) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                        )
+                    } else {
+                        Spacer(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+Source: `CalendarioScreen.kt:168-218`
+
+## Daily Summary Data
+
+Each day's data is summarized with average values per period:
+
+```kotlin
+data class ResumenDiario(
+    val dia: Int,
+    val mediaSistolicaManana: Double?,
+    val mediaDiastolicaManana: Double?,
+    val mediaSistolicaTarde: Double?,
+    val mediaDiastolicaTarde: Double?,
+    val mediaSistolicaNoche: Double?,
+    val mediaDiastolicaNoche: Double?
+)
+```
+
+Source: `app/src/main/java/com/fxn/mitension/data/ResumenDiario.kt:3-11`
+
+## Color-Coded Indicators
+
+### Day Cell Visualization
+
+Each calendar day displays three horizontal bars representing the three daily periods:
+
+```kotlin
+@Composable
+fun CeldaDiaCalendario(
+    dia: Int,
+    resumen: ResumenDiario?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier.clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Day number
+            Text(
+                text = dia.toString(),
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Color indicators for morning, afternoon, evening
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                // Morning indicator
+                val colorManana = resumen?.mediaSistolicaManana?.let { sist ->
+                    resumen.mediaDiastolicaManana?.let { diast ->
+                        obtenerColorPorEstado(
+                            clasificarTension(
+                                sist.roundToInt(),
+                                diast.roundToInt()
+                            )
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(colorManana ?: Color.Transparent)
+                )
+
+                // Afternoon indicator
+                val colorTarde = resumen?.mediaSistolicaTarde?.let { sist ->
+                    resumen.mediaDiastolicaTarde?.let { diast ->
+                        obtenerColorPorEstado(
+                            clasificarTension(
+                                sist.roundToInt(),
+                                diast.roundToInt()
+                            )
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(colorTarde ?: Color.Transparent)
+                )
+
+                // Evening indicator
+                val colorNoche = resumen?.mediaSistolicaNoche?.let { sist ->
+                    resumen.mediaDiastolicaNoche?.let { diast ->
+                        obtenerColorPorEstado(
+                            clasificarTension(
+                                sist.roundToInt(),
+                                diast.roundToInt()
+                            )
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .background(colorNoche ?: Color.Transparent)
+                )
+            }
+        }
+    }
+}
+```
+
+Source: `CalendarioScreen.kt:221-308`
+
+### Blood Pressure Classification
+
+Colors are assigned based on AHA (American Heart Association) guidelines:
+
+```kotlin
+fun clasificarTension(sistolica: Int, diastolica: Int): EstadoTension {
+    return when {
+        // Hypertensive crisis - most severe
+        sistolica > 180 || diastolica > 120 -> EstadoTension.CRISIS_HIPERTENSIVA
+
+        // Stage 2 Hypertension
+        sistolica >= 140 || diastolica >= 90 -> EstadoTension.ALTA_2
+
+        // Stage 1 Hypertension
+        sistolica >= 130 || diastolica >= 80 -> EstadoTension.ALTA_1
+
+        // Elevated
+        sistolica >= 120 && diastolica < 80 -> EstadoTension.ELEVADA
+
+        // Hypotension (Low)
+        sistolica < 90 || diastolica < 60 -> EstadoTension.BAJA
+
+        // Normal
+        else -> EstadoTension.NORMAL
+    }
+}
+```
+
+Source: `app/src/main/java/com/fxn/mitension/util/EstadoTension.kt:21-41`
+
+### Color Mapping
+
+Each blood pressure state maps to a specific color:
+
+```kotlin
+@Composable
+fun obtenerColorPorEstado(estado: EstadoTension): Color {
+    return when (estado) {
+        EstadoTension.BAJA -> Color.Blue
+        EstadoTension.NORMAL -> Color(0xFF008000) // Dark green
+        EstadoTension.ELEVADA -> Color(0xFFFFA500) // Orange
+        EstadoTension.ALTA_1 -> Color.Red
+        EstadoTension.ALTA_2 -> Color(0xFFDC143C) // Crimson
+        EstadoTension.CRISIS_HIPERTENSIVA -> Color(0xFF8B0000) // Dark red
+    }
+}
+```
+
+Source: `EstadoTension.kt:49-58`
+
+## Color Legend
+
+<CardGroup cols={2}>
+  <Card title="Low Blood Pressure" icon="arrow-down" color="#0000FF">
+    **Blue**
+    
+    Systolic < 90 OR Diastolic < 60
+  </Card>
+  <Card title="Normal" icon="check" color="#008000">
+    **Dark Green**
+    
+    Systolic 90-119 AND Diastolic 60-79
+  </Card>
+  <Card title="Elevated" icon="arrow-up" color="#FFA500">
+    **Orange**
+    
+    Systolic 120-129 AND Diastolic < 80
+  </Card>
+  <Card title="High Stage 1" icon="exclamation" color="#FF0000">
+    **Red**
+    
+    Systolic 130-139 OR Diastolic 80-89
+  </Card>
+  <Card title="High Stage 2" icon="triangle-exclamation" color="#DC143C">
+    **Crimson**
+    
+    Systolic ≥ 140 OR Diastolic ≥ 90
+  </Card>
+  <Card title="Hypertensive Crisis" icon="skull" color="#8B0000">
+    **Dark Red**
+    
+    Systolic > 180 OR Diastolic > 120
+  </Card>
+</CardGroup>
+
+### Legend Dialog
+
+Users can view the color legend via the menu:
+
+```kotlin
+TopAppBar(
+    title = { Text(stringResource(id = R.string.titulo_calendario)) },
+    actions = {
+        IconButton(onClick = { menuVisible = true }) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = stringResource(id = R.string.menu_descripcion)
+            )
+        }
+        DropdownMenu(
+            expanded = menuVisible,
+            onDismissRequest = { menuVisible = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(id = R.string.menu_leyenda_colores)) },
+                onClick = {
+                    menuVisible = false
+                    dialogoLeyendaVisible = true
+                }
+            )
+        }
+    }
+)
+```
+
+Source: `CalendarioScreen.kt:66-89`
+
+The legend dialog displays each color with its meaning:
+
+```kotlin
+@Composable
+fun LeyendaItem(color: Color, texto: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 4.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .background(color, CircleShape)
+        )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(text = texto, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+```
+
+Source: `CalendarioScreen.kt:372-385`
+
+## Interactive Features
+
+<Steps>
+  <Step title="Navigate Months">
+    Use the arrow buttons to move backward and forward through months. The ViewModel maintains the current month state:
+    
+    ```kotlin
+    fun mesAnterior() {
+        _uiState.value = _uiState.value.copy(
+            anioMes = _uiState.value.anioMes.minusMonths(1)
+        )
+    }
+
+    fun mesSiguiente() {
+        _uiState.value = _uiState.value.copy(
+            anioMes = _uiState.value.anioMes.plusMonths(1)
+        )
+    }
+    ```
+  </Step>
+  
+  <Step title="Tap a Day">
+    Click any day cell to view detailed measurements for that day:
+    
+    ```kotlin
+    CeldaDiaCalendario(
+        dia = diaMes,
+        resumen = resumenMensual[diaMes],
+        onClick = { onDiaClick(diaMes) },
+        modifier = Modifier
+            .weight(1f)
+            .aspectRatio(1f)
+    )
+    ```
+    
+    This navigates to the Day Details screen with full measurement breakdown.
+  </Step>
+  
+  <Step title="View Color Legend">
+    Tap the menu icon (⋮) in the top bar and select "Leyenda de colores" to see what each color represents.
+  </Step>
+  
+  <Step title="Add New Measurement">
+    Use the bottom bar button to navigate back to the measurement screen:
+    
+    ```kotlin
+    BottomAppBar {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Button(onClick = onNavigateToMedicion) {
+                Text(stringResource(id = R.string.anadir_nuevo_registro))
+            }
+        }
+    }
+    ```
+    
+    Source: `CalendarioScreen.kt:96-106`
+  </Step>
+</Steps>
+
+## State Management
+
+The calendar uses `StateFlow` for reactive UI updates:
+
+```kotlin
+val uiState by viewModel.uiState.collectAsState()
+
+CalendarioHeader(
+    anioMes = uiState.anioMes,
+    onMesAnterior = { viewModel.mesAnterior() },
+    onMesSiguiente = { viewModel.mesSiguiente() }
+)
+CalendarioGrid(
+    anioMes = uiState.anioMes,
+    resumenMensual = uiState.resumenMensual,
+    onDiaClick = { dia ->
+        onNavigateToDiaDetalle(uiState.anioMes.year, 
+                               uiState.anioMes.monthValue, 
+                               dia)
+    }
+)
+```
+
+Source: `CalendarioScreen.kt:59`, `114-125`
+
+<Info>
+The calendar view automatically updates when new measurements are added, providing immediate visual feedback on blood pressure trends.
+</Info>
+
+## Visual Pattern Recognition
+
+The heatmap design makes it easy to spot:
+
+- **Consistent patterns**: Days with similar colors indicate stable blood pressure
+- **Trend changes**: Shifts from green to orange/red show increasing pressure
+- **Missing data**: Transparent bars indicate periods without measurements
+- **Time-of-day patterns**: Compare morning, afternoon, and evening readings across multiple days

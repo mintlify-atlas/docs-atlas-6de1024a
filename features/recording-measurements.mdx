@@ -1,0 +1,327 @@
+---
+title: Recording Measurements
+description: Learn how to record blood pressure measurements with MiTensión's intuitive interface
+---
+
+## Overview
+
+MiTensión provides a streamlined interface for recording blood pressure measurements throughout the day. The app automatically detects the current time period (morning, afternoon, or evening) and allows up to 3 measurements per period, following medical best practices.
+
+## Core Components
+
+### Measurement Data Model
+
+Each measurement is stored as a simple entity with essential information:
+
+```kotlin
+@Entity
+data class Medicion(
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+    val sistolica: Int,      // Systolic pressure
+    val diastolica: Int,     // Diastolic pressure
+    val timestamp: Long = System.currentTimeMillis()
+)
+```
+
+Source: `app/src/main/java/com/fxn/mitension/data/Medicion.kt:7-13`
+
+### Time Periods
+
+Measurements are organized into three daily periods:
+
+<CardGroup cols={3}>
+  <Card title="Morning" icon="sunrise">
+    00:01 - 12:30
+    
+    First measurement period of the day
+  </Card>
+  <Card title="Afternoon" icon="sun">
+    12:31 - 19:00
+    
+    Midday measurement period
+  </Card>
+  <Card title="Evening" icon="moon">
+    19:01 - 00:00
+    
+    Evening measurement period
+  </Card>
+</CardGroup>
+
+The current period is automatically determined based on the device time:
+
+```kotlin
+fun obtenerPeriodoActual(): PeriodoDelDia {
+    val calendario = Calendar.getInstance()
+    val hora = calendario.get(Calendar.HOUR_OF_DAY)
+    val minuto = calendario.get(Calendar.MINUTE)
+    val tiempoEnMinutos = hora * 60 + minuto
+
+    return when {
+        tiempoEnMinutos in 1..750 -> PeriodoDelDia.MAÑANA
+        tiempoEnMinutos in 751..1140 -> PeriodoDelDia.TARDE
+        else -> PeriodoDelDia.NOCHE
+    }
+}
+```
+
+Source: `app/src/main/java/com/fxn/mitension/util/PeriodoDelDia.kt:11-26`
+
+## Recording Flow
+
+<Steps>
+  <Step title="Open Measurement Screen">
+    The app displays the current period and measurement number (1-3) in the title bar.
+    
+    ```kotlin
+    val tituloCompleto = if (uiState.numeroMedicion > 3) {
+        stringResource(id = R.string.titulo_mediciones_completas, periodoNombre)
+    } else {
+        stringResource(
+            id = R.string.titulo_medicion,
+            periodoNombre,
+            uiState.numeroMedicion
+        )
+    }
+    ```
+    
+    Source: `MedicionScreen.kt:69-77`
+  </Step>
+  
+  <Step title="Enter Systolic Pressure">
+    Tap the systolic (high) pressure field to open a numeric dialog.
+    
+    ```kotlin
+    TensionDisplay(
+        label = stringResource(id = R.string.tension_alta_label),
+        valor = uiState.sistolica,
+        onClick = { mostrarPopupSistolica = true }
+    )
+    ```
+    
+    The dialog accepts 1-3 digit numeric values with automatic keyboard focus:
+    
+    ```kotlin
+    OutlinedTextField(
+        value = text,
+        onValueChange = { newValue ->
+            if (newValue.text.length <= 3 && newValue.text.all { it.isDigit() }) {
+                text = newValue
+            }
+        },
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Number,
+            imeAction = ImeAction.Done
+        )
+    )
+    ```
+    
+    Source: `MedicionScreen.kt:253-273`
+  </Step>
+  
+  <Step title="Enter Diastolic Pressure">
+    Tap the diastolic (low) pressure field and enter the value using the same numeric dialog.
+    
+    Both fields display placeholder text "Pulsa para añadir" when empty, making it clear they are interactive.
+  </Step>
+  
+  <Step title="Save Measurement">
+    Tap the "Guardar" (Save) button to store the measurement.
+    
+    The ViewModel validates and saves the data:
+    
+    ```kotlin
+    fun guardarMedicion(mensajeErrorCampos: String, 
+                        mensajeErrorPeriodoLleno: String, 
+                        mensajeExito: String) {
+        viewModelScope.launch {
+            // Validation 1: Empty fields
+            if (_uiState.value.sistolica.isBlank() || 
+                _uiState.value.diastolica.isBlank()) {
+                _evento.emit(UiEvento.MostrarMensaje(mensajeErrorCampos))
+                return@launch
+            }
+
+            // Validation 2: Period full (3 measurements)
+            if (_uiState.value.numeroMedicion > 3) {
+                val tiempoRestante = obtenerTiempoRestanteParaSiguientePeriodo(
+                    _uiState.value.periodo
+                )
+                val mensajeFormateado = String.format(
+                    mensajeErrorPeriodoLleno, 
+                    tiempoRestante
+                )
+                _evento.emit(UiEvento.MostrarMensaje(mensajeFormateado))
+                return@launch
+            }
+
+            val nuevaMedicion = Medicion(
+                sistolica = sistolica.toInt(),
+                diastolica = diastolica.toInt(),
+            )
+
+            repository.insertarMedicion(nuevaMedicion)
+            _evento.emit(UiEvento.GuardadoConExito(mensajeExito))
+        }
+    }
+    ```
+    
+    Source: `MedicionViewModel.kt:60-98`
+  </Step>
+  
+  <Step title="View Confirmation">
+    A Toast message confirms the save, and the form resets for the next measurement.
+    
+    ```kotlin
+    fun onGuardadoExitoso() {
+        val nuevoNumero = _uiState.value.numeroMedicion + 1
+        _uiState.value = _uiState.value.copy(
+            sistolica = "",
+            diastolica = "",
+            numeroMedicion = nuevoNumero
+        )
+    }
+    ```
+    
+    Source: `MedicionViewModel.kt:100-108`
+  </Step>
+</Steps>
+
+## Validation Rules
+
+<Note>
+The app enforces several validation rules to ensure data quality:
+
+- **Required Fields**: Both systolic and diastolic values must be entered
+- **Numeric Only**: Only digits 0-9 are accepted
+- **Length Limit**: Maximum 3 digits (up to 999 mmHg)
+- **Period Limit**: Maximum 3 measurements per time period
+</Note>
+
+## UI Components
+
+### Tension Display Field
+
+The custom `TensionDisplay` component provides a large, tappable area for entering values:
+
+```kotlin
+@Composable
+fun TensionDisplay(label: String, valor: String, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.headlineSmall
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.7f)
+                .height(120.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, 
+                           MaterialTheme.shapes.large)
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = if (valor.isEmpty()) 
+                    stringResource(id = R.string.pulsa_para_anadir) 
+                    else valor,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontWeight = FontWeight.Bold
+                ),
+                color = if (valor.isEmpty()) 
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f) 
+                    else MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
+```
+
+Source: `MedicionScreen.kt:196-222`
+
+### Input Dialog
+
+The numeric input dialog automatically focuses the text field and selects all text for quick editing:
+
+```kotlin
+var text by remember {
+    mutableStateOf(
+        TextFieldValue(
+            text = valorInicial,
+            selection = TextRange(valorInicial.length)
+        )
+    )
+}
+
+LaunchedEffect(Unit) {
+    focusRequester.requestFocus()
+}
+```
+
+Source: `MedicionScreen.kt:231-237`, `293-295`
+
+## State Management
+
+The measurement screen uses a clean MVVM architecture with UI state:
+
+```kotlin
+data class MedicionUiState(
+    val sistolica: String = "",
+    val diastolica: String = "",
+    val periodo: PeriodoDelDia = obtenerPeriodoActual(),
+    val numeroMedicion: Int = 1 // From 1 to 3
+)
+```
+
+Source: `MedicionViewModel.kt:17-22`
+
+Events are handled through a shared flow to ensure one-time consumption:
+
+```kotlin
+sealed class UiEvento {
+    data class MostrarMensaje(val mensaje: String) : UiEvento()
+    data class GuardadoConExito(val mensaje: String) : UiEvento()
+}
+
+LaunchedEffect(key1 = true) {
+    viewModel.evento.collectLatest { evento ->
+        when (evento) {
+            is MedicionViewModel.UiEvento.MostrarMensaje -> {
+                Toast.makeText(context, evento.mensaje, Toast.LENGTH_LONG).show()
+            }
+            is MedicionViewModel.UiEvento.GuardadoConExito -> {
+                Toast.makeText(context, evento.mensaje, Toast.LENGTH_SHORT).show()
+                viewModel.onGuardadoExitoso()
+            }
+        }
+    }
+}
+```
+
+Source: `MedicionViewModel.kt:110-113`, `MedicionScreen.kt:79-92`
+
+## Navigation
+
+After recording measurements, users can navigate to the calendar view:
+
+```kotlin
+Button(
+    onClick = { onNavigateToCalendario() },
+    modifier = Modifier
+        .weight(3f)
+        .height(60.dp)
+) {
+    Text(
+        stringResource(id = R.string.ver_calendario),
+        style = MaterialTheme.typography.bodyLarge
+    )
+}
+```
+
+Source: `MedicionScreen.kt:154-164`
+
+<Info>
+The measurement screen persists the current period and count, so users can seamlessly continue adding measurements throughout the day.
+</Info>
