@@ -294,6 +294,114 @@ fun guardarMedicion(...) {
   Room automatically handles threading - you don't need to specify `Dispatchers.IO` for database operations.
 </Note>
 
+## Additional ViewModels
+
+### CalendarioViewModel
+
+The Calendar screen uses a simpler state management approach for displaying monthly summaries.
+
+**Location:** `app/src/main/java/com/fxn/mitension/ui/viewmodel/CalendarioUiState.kt`
+
+**State Definition:**
+```kotlin
+data class CalendarioUiState(
+    val fechaSeleccionada: LocalDate = LocalDate.now(),
+    val resumenMensual: Map<Int, ResumenDiario> = emptyMap()
+) {
+    val anioMes: YearMonth = YearMonth.from(fechaSeleccionada)
+}
+```
+
+**Key Features:**
+- `fechaSeleccionada` - Currently selected date for month navigation
+- `resumenMensual` - Map of day number to daily summary with period averages
+- `anioMes` - Computed property for year/month display
+
+**Navigation Functions:**
+```kotlin
+fun mesSiguiente()  // Navigate to next month
+fun mesAnterior()   // Navigate to previous month
+```
+
+**Data Loading:**
+The ViewModel uses `flatMapLatest` to automatically reload data when the month changes:
+
+```kotlin
+val uiState = fechaSeleccionadaFlow
+    .flatMapLatest { fecha ->
+        val inicio = fecha.atStartOfMonth()
+        val fin = fecha.atEndOfMonth()
+        repository.obtenerResumenMensual(inicio, fin)
+            .map { lista ->
+                CalendarioUiState(
+                    fechaSeleccionada = fecha,
+                    resumenMensual = lista.associateBy { it.dia }
+                )
+            }
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CalendarioUiState())
+```
+
+<Info>
+  The Map structure (`Map<Int, ResumenDiario>`) enables O(1) lookup when rendering calendar cells, significantly improving performance for 30-31 day grids.
+</Info>
+
+### DiaDetalleViewModel
+
+The Day Detail screen displays all measurements for a specific day, grouped by period.
+
+**Location:** `app/src/main/java/com/fxn/mitension/ui/viewmodel/DiaDetalleViewModel.kt`
+
+**State Definition:**
+```kotlin
+data class DiaDetalleUiState(
+    val medicionesAgrupadas: Map<PeriodoDelDia, List<Medicion>> = emptyMap(),
+    val dia: Int = 0,
+    val mes: Int = 0,
+    val anio: Int = 0
+)
+```
+
+**Navigation Integration:**
+The ViewModel receives date parameters from the navigation arguments using `SavedStateHandle`:
+
+```kotlin
+class DiaDetalleViewModel(
+    savedStateHandle: SavedStateHandle,
+    private val repository: MedicionRepository
+) : ViewModel() {
+    private val anio: Int = checkNotNull(savedStateHandle[AppDestinations.ANIO_ARG])
+    private val mes: Int = checkNotNull(savedStateHandle[AppDestinations.MES_ARG])
+    private val dia: Int = checkNotNull(savedStateHandle[AppDestinations.DIA_ARG])
+}
+```
+
+**Data Loading & Grouping:**
+1. Calculates day timestamp range from date parameters
+2. Queries measurements for that day
+3. Groups by period using `obtenerPeriodoParaTimestamp()`
+4. Exposes as StateFlow for UI observation
+
+```kotlin
+val uiState: StateFlow<DiaDetalleUiState> = repository
+    .obtenerMedicionesEnRango(inicioDia, finDia)
+    .map { mediciones ->
+        val agrupadas = mediciones.groupBy { 
+            obtenerPeriodoParaTimestamp(it.timestamp) 
+        }
+        DiaDetalleUiState(
+            medicionesAgrupadas = agrupadas,
+            dia = dia,
+            mes = mes,
+            anio = anio
+        )
+    }
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DiaDetalleUiState())
+```
+
+**Period Ordering:**
+The UI displays periods in chronological order (Morning → Afternoon → Night) using the enum's natural ordering.
+
 ## Testing Strategy
 
 ### Unit Testing ViewModels
