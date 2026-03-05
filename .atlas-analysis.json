@@ -1,0 +1,99 @@
+{
+  "projectType": "saas",
+  "projectName": "MiTensión",
+  "projectDescription": "Blood pressure tracking app for Android with calendar visualization and smart reminders",
+  "theme": "almond",
+  "primaryColor": "#FF6B6B",
+  "lightColor": "#FFB8B8",
+  "darkColor": "#D64545",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Get Started",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": ["introduction", "installation"]
+          },
+          {
+            "group": "Quick Start",
+            "pages": ["quickstart"]
+          }
+        ]
+      },
+      {
+        "tab": "Features",
+        "groups": [
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/recording-measurements",
+              "features/calendar-view",
+              "features/day-details",
+              "features/notifications"
+            ]
+          },
+          {
+            "group": "Understanding Data",
+            "pages": [
+              "features/blood-pressure-classification",
+              "features/period-tracking"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Architecture",
+            "pages": [
+              "development/architecture",
+              "development/data-model",
+              "development/ui-components"
+            ]
+          },
+          {
+            "group": "Testing",
+            "pages": [
+              "development/testing",
+              "development/building"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Additional Resources",
+            "pages": [
+              "resources/changelog",
+              "resources/contributing",
+              "resources/internationalization"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Record blood pressure measurements three times per period (Morning, Afternoon, Night)",
+    "Calendar heatmap visualization showing daily averages with color-coded indicators",
+    "Detailed day view with period-based grouping and blood pressure classification",
+    "Smart notification reminders using WorkManager for missed measurements",
+    "Local data persistence with Room database",
+    "Multi-language support (Spanish, English, Galician)"
+  ],
+  "publicApiSurface": [
+    "Medicion (data class with sistolica, diastolica, timestamp)",
+    "MedicionDao (Room DAO for database operations)",
+    "MedicionRepository (data layer abstraction)",
+    "MedicionViewModel (handles measurement screen logic)",
+    "CalendarioViewModel (manages calendar state)",
+    "DiaDetalleViewModel (day detail screen logic)",
+    "EstadoTension (blood pressure classification enum)",
+    "PeriodoDelDia (day period enum: Morning, Afternoon, Night)",
+    "ReminderWorker (WorkManager notification worker)"
+  ]
+}
